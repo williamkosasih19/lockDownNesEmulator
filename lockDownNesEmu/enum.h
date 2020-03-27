@@ -7,18 +7,6 @@
 
 **************************************************************** */
 
-enum cpu_flags_shift_e
-{
-  carry_shift = 0,
-  zero_shift = 1,
-  disable_interrupt_shift = 2,
-  decimal_shift = 3,
-  break_shift = 4,
-  unused_shift = 5,
-  overflow_shift = 6,
-  negative_shift = 7
-};
-
 enum cpu_flags_e
 {
   carry_cpu_fl = 1,

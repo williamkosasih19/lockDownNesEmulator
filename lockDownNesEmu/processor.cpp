@@ -32,34 +32,7 @@ void processor::reset()
 // :TODO: simplify this, this is so ugly
 void processor::set_flag(const cpu_flags_e cpu_flag, const bool_t value) 
 {
-  uint8_t temp_value;
-  switch (cpu_flags_e(cpu_flag))
-  {
-  case carry_cpu_fl:
-    temp_value = uint8_t(1)  << cpu_flags_shift_e::carry_shift;
-    break;
-  case zero_cpu_fl:
-    temp_value = uint8_t(1) << cpu_flags_shift_e::zero_shift;
-    break;
-  case disable_interrupt_cpu_fl:
-    temp_value = uint8_t(1) << cpu_flags_shift_e::disable_interrupt_shift;
-    break;
-  case decimal_cpu_fl:
-    temp_value = uint8_t(1) << cpu_flags_shift_e::decimal_shift;
-    break;
-  case break_cpu_fl:
-    temp_value = uint8_t(1) << cpu_flags_shift_e::break_shift;
-    break;
-  case unused_cpu_fl:
-    temp_value = uint8_t(1) << cpu_flags_shift_e::unused_shift;
-    break;
-  case overflow_cpu_fl:
-    temp_value = uint8_t(1) << cpu_flags_shift_e::overflow_shift;
-    break;
-  case negative_cpu_fl:
-    temp_value = uint8_t(1) << cpu_flags_shift_e::negative_shift;
-    break;
-  }
+  const uint8_t temp_value = uint8_t(1) << shift_amount_map[cpu_flag];
   if (value)
     status |= temp_value;
   else
@@ -69,35 +42,7 @@ void processor::set_flag(const cpu_flags_e cpu_flag, const bool_t value)
 
 bool_t processor::get_flag(const cpu_flags_e cpu_flag)
 {
-  uint8_t shift_value;
-  switch (cpu_flags_e(cpu_flag))
-  {
-  case carry_cpu_fl:
-    shift_value = cpu_flags_shift_e::carry_shift;
-    break;
-  case zero_cpu_fl:
-    shift_value = cpu_flags_shift_e::zero_shift;
-    break;
-  case disable_interrupt_cpu_fl:
-    shift_value = cpu_flags_shift_e::disable_interrupt_shift;
-    break;
-  case decimal_cpu_fl:
-    shift_value = cpu_flags_shift_e::decimal_shift;
-    break;
-  case break_cpu_fl:
-    shift_value = cpu_flags_shift_e::break_shift;
-    break;
-  case unused_cpu_fl:
-    shift_value = cpu_flags_shift_e::unused_shift;
-    break;
-  case overflow_cpu_fl:
-    shift_value = cpu_flags_shift_e::overflow_shift;
-    break;
-  case negative_cpu_fl:
-    shift_value = cpu_flags_shift_e::negative_shift;
-    break;
-  }
-  return (status >> shift_value) % 2;
+  return (status >> shift_amount_map[cpu_flag]) % 2;
 }
 
 void processor::execute(number32_t instructions)

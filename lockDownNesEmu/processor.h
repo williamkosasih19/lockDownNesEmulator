@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <array>
+#include <unordered_map>
 
 #include "bus.h"
 #include "types.h"
@@ -20,6 +21,7 @@ private:
   using instr_cycle_pair = std::pair<opcode_addr_pair, uint16_t>;
   using op_row_t = std::array<instr_cycle_pair, 16>;
   using op_table_t = std::array<op_row_t, 16>;
+
   void set_flag(const cpu_flags_e, const bool_t value);
   bool_t get_flag(const cpu_flags_e);
 
@@ -28,6 +30,7 @@ private:
   uint64_t clock_count;
   bus& main_bus;
   op_table_t op_table;
+  std::unordered_map<uint8_t, uint8_t> shift_amount_map;
 
   public:
   processor(bus&);

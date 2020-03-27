@@ -277,4 +277,13 @@ void processor::init()
 
   op_table = {row1, row2,  row3,  row4,  row5,  row6,  row7,  row8,
               row9, row10, row11, row12, row13, row14, row15, row16};
+  
+  shift_amount_map[cpu_flags_e::carry_cpu_fl] = 0;
+  shift_amount_map[cpu_flags_e::zero_cpu_fl] = 1;
+  shift_amount_map[cpu_flags_e::disable_interrupt_cpu_fl] = 2;
+  shift_amount_map[cpu_flags_e::decimal_cpu_fl] = 3;
+  shift_amount_map[cpu_flags_e::break_cpu_fl] = 4;
+  shift_amount_map[cpu_flags_e::unused_cpu_fl] = 5;
+  shift_amount_map[cpu_flags_e::overflow_cpu_fl] = 6;
+  shift_amount_map[cpu_flags_e::negative_cpu_fl] = 7;
 }

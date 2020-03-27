@@ -9,11 +9,13 @@
 #include <cstdint>
 #include <array>
 
-class memory
+class bus
 {
 private:
-  std::array<uint8_t> ram;
+  std::array<uint8_t, 65536> ram;
 
 public:
+  bus();
+  uint8_t& operator[](const uint16_t address);
 
 };

@@ -8,18 +8,30 @@
 **************************************************************** */
 
 #include <cstdint>
+#include <array>
+
+#include "bus.h"
+#include "types.h"
+#include "enum.h"
 
 class processor{
 private:
-  uint8_t a = 0;
-  uint8_t x = 0;
-  uint8_t y = 0;
-  uint8_t sp = 0;
-  uint16_t pc = 0;
+  using opcode_addr_pair = std::pair<opcode_e, addr_mode_e>;
+  using instr_cycle_pair = std::pair<opcode_addr_pair, uint16_t>;
+  using op_row_t = std::array<instr_cycle_pair, 16>;
+  using op_table_t = std::array<op_row_t, 16>;
+  void set_flag(const cpu_flags_e, const bool_t value);
+  bool_t get_flag(const cpu_flags_e);
 
-  uint8_t status = 0;
+  uint8_t a, x, y, sp, instruction, data, status;
+  uint16_t pc, addr;
+  uint64_t clock_count;
+  bus& main_bus;
+  op_table_t op_table;
 
   public:
-  processor();
-
+  processor(bus&);
+  void init();
+  void reset();
+  void execute(number32_t instructions);
 };

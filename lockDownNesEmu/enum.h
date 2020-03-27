@@ -7,16 +7,28 @@
 
 **************************************************************** */
 
+enum cpu_flags_shift_e
+{
+  carry_shift = 0,
+  zero_shift = 1,
+  disable_interrupt_shift = 2,
+  decimal_shift = 3,
+  break_shift = 4,
+  unused_shift = 5,
+  overflow_shift = 6,
+  negative_shift = 7
+};
+
 enum cpu_flags_e
 {
-  carry_cpu_fl = 0x1,
-  zero_cpu_fl = 0x10,
-  disable_interrupt_cpu_fl = 0x100,
-  decimal_cpu_fl = 0x1000,
-  break_cpu_fl = 0x10000,
-  unused_cpu_fl = 0x100000,
-  overflow_cpu_fl = 0x1000000,
-  negative_cpu_fl = 0x10000000
+  carry_cpu_fl = 1,
+  zero_cpu_fl = 1 << 1,
+  disable_interrupt_cpu_fl = 1 << 2,
+  decimal_cpu_fl = 1 << 3,
+  break_cpu_fl = 1 << 4,
+  unused_cpu_fl = 1 << 5,
+  overflow_cpu_fl = 1 << 6,
+  negative_cpu_fl = 1 << 7
 };
 
 enum opcode_e
@@ -49,7 +61,7 @@ enum opcode_e
   iny_op,
   jmp_op,
   jsr_op,
-  lda_Op,
+  lda_op,
   ldx_op,
   ldy_op,
   lsr_op,
@@ -72,7 +84,13 @@ enum opcode_e
   tsy_op,
   tya_op,
   ror_op,
-  ill_op
+  ill_op,
+  inx_op,
+  txa_op,
+  txs_op,
+  pla_op,
+  rol_op,
+  plp_op
 };
 
 enum addr_mode_e
@@ -88,5 +106,6 @@ enum addr_mode_e
   aby_addr,
   rel_addr,
   izx_addr,
-  izy_addr
+  izy_addr,
+  ind_addr
 };

@@ -2,10 +2,43 @@
 //
 
 #include <iostream>
+#include <string>
+#include <sstream>
+#include <vector>
+
+#include "types.h"
+
+using namespace std;
 
 int main()
-{
-    std::cout << "Hello World!\n";
+{ 
+  cout << "Lockdown Nes Emulator v0.01" << endl;
+  cout << "   William Kosasih, 27 March 2020" << endl;
+  cout << endl;
+  cout << "Type help for help" << endl;
+  cout << "> ready!" << endl;
+
+  string command;
+  vector<string> command_split(10);
+
+
+  while (true)
+  {
+    cout << "< ";
+    cin >> command;
+    stringstream sstream(command);
+    index32_t i = 0;
+    while (sstream.good() && i < 10) sstream >> command_split[i];
+    
+    if (command_split[0] == "help")
+    {
+    
+    }
+    else if (command_split[0] == "load")
+    {
+      
+    }
+  }
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

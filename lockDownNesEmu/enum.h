@@ -89,7 +89,6 @@ enum addr_mode_e
   zp_addr,
   zpx_addr,
   zpy_addr,
-  abs_addr,
   abx_addr,
   aby_addr,
   rel_addr,

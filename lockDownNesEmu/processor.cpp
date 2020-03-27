@@ -97,16 +97,20 @@ void processor::execute(number32_t instructions)
       addr = (main_bus[pc] << 8) | main_bus[pc];
       pc += 2;
       break;
-    case abx_addr:
+    case abx_addr: 
+    {
       const uint16_t lower_half = main_bus[pc];
       const uint16_t upper_half = main_bus[pc + 1];
       addr = ((upper_half << 8) | lower_half) + x;
-      // If the addition with x results in the page  incremented, 
+      // If the addition with x results in the page  incremented,
       // then add an additional cycle.
-      if ((addr & 0xff00) != (upper_half << 8)) additional_cycle += 1;
+      if ((addr & 0xff00) != (upper_half << 8))
+        additional_cycle += 1;
       pc += 2;
       break;
-    case aby_addr:
+    }
+    case aby_addr: 
+    {
       const uint16_t lower_half = main_bus[pc];
       const uint16_t upper_half = main_bus[pc + 1];
       addr = ((upper_half << 8) | lower_half) + y;
@@ -116,13 +120,15 @@ void processor::execute(number32_t instructions)
         additional_cycle += 1;
       pc += 2;
       break;
-    case ind_addr:
+    }
+    case ind_addr: 
+    {
       const uint16_t lower_half = main_bus[pc];
       const uint16_t upper_half = main_bus[pc + 1];
       const uint16_t ptr = (upper_half << 8) | lower_half;
       if (lower_half == 0xff)
       {
-        // Simulate the bug where the lower 8 bit overflow but 
+        // Simulate the bug where the lower 8 bit overflow but
         // the upper half doesn't get incremented.
         addr = (main_bus[ptr & 0xff00] | main_bus[ptr]);
       }
@@ -132,13 +138,18 @@ void processor::execute(number32_t instructions)
       }
       pc += 2;
       break;
-    case izx_addr:
+    }
+    case izx_addr: 
+    {
       const uint16_t ptr = main_bus[pc];
       addr = (main_bus[(ptr + uint16_t(x)) & 0xff] << 8) |
              main_bus[(ptr + uint16_t(x) + 1) & 0xff];
       pc++;
       break;
-    case izy_addr:
+    }
+
+    case izy_addr: 
+    {
       const uint16_t ptr = main_bus[pc];
       uint16_t lower_half = main_bus[ptr & 0xff];
       uint16_t upper_half = main_bus[(ptr + 1) & 0xff];
@@ -149,9 +160,12 @@ void processor::execute(number32_t instructions)
       break;
     }
 
+    }
+
     switch (opcode_e(op))
     {
-    case adc_op:
+    case adc_op: 
+    {
       data = main_bus[addr];
       uint16_t temp = uint16_t(a) + uint16_t(data) +
                       uint16_t(get_flag(cpu_flags_e::carry_cpu_fl));
@@ -165,6 +179,8 @@ void processor::execute(number32_t instructions)
       set_flag(cpu_flags_e::negative_cpu_fl, temp & 0x80);
       a = temp & 0xff;
       break;
+    }
+
     }
 
   }

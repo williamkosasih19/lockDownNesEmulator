@@ -5,6 +5,15 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <numeric>
+#include <windows.h>
+
+#include <cstdlib>
+
+#include <sdl.h>
+#undef main
+
+
 
 #include "types.h"
 
@@ -21,9 +30,57 @@ int main()
   string command;
   vector<string> command_split(10);
 
+  SDL_Event event;
+
+  SDL_Init(SDL_INIT_VIDEO);
+
+  SDL_Window* window =
+      SDL_CreateWindow("SDL2 Pixel Drawing", SDL_WINDOWPOS_UNDEFINED,
+                       SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
+
+  auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                           SDL_TEXTUREACCESS_STATIC, 640, 480);
+
+  vector<unsigned int> pixels;
+  pixels.reserve(640 * 480);
+
+  for (int i = 0; i < 640 * 480; i++)
+  {
+    pixels.push_back(0);
+  }
+
+  bool_t quit = false;
+  bool_t random = false;
 
   while (true)
   {
+    SDL_UpdateTexture(texture, NULL, pixels.data(), 640 * sizeof(Uint32));
+
+    //SDL_WaitEvent(&event);
+
+    //switch (event.type)
+    //{
+    //case SDL_QUIT:
+    //  quit = true;
+    //  break;
+    //}
+
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+    if (random)
+    {
+      Sleep(100);
+      for (index32_t i = 0; i < 640 * 480; i++)
+      {
+        pixels[i] = rand() % (numeric_limits<unsigned int>::max)();
+      }
+      continue;
+    }
+
+
+
     cout << "< ";
     cin >> command;
     stringstream sstream(command);
@@ -38,7 +95,14 @@ int main()
     {
       
     }
+    else if (command_split[0] == "random")
+    {
+      random = true;
+    }
   }
+
+	SDL_DestroyWindow(window);
+  SDL_Quit();
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu

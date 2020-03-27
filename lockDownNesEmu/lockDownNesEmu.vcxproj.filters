@@ -45,4 +45,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\compiled\SDL2main.lib">
+      <Filter>Resource Files</Filter>
+    </Library>
+    <Library Include="lib\compiled\SDL2.lib">
+      <Filter>Resource Files</Filter>
+    </Library>
+  </ItemGroup>
 </Project>

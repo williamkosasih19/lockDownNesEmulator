@@ -9,13 +9,20 @@
 #include <cstdint>
 #include <array>
 
-class bus
+#include "enum.h"
+
+class cartridge_c;
+class ppu_c;
+
+class bus_c
 {
 private:
   std::array<uint8_t, 65536> ram;
+  cartridge_c& cartridge;
 
 public:
-  bus();
+  bus_c(cartridge_c&);
   uint8_t& operator[](const uint16_t address);
+  template <component_e> uint8_t& access(const uint16_t);
 
 };

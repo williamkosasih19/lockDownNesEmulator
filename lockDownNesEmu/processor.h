@@ -15,7 +15,7 @@
 #include "types.h"
 #include "enum.h"
 
-class processor{
+class processor_c{
 private:
   using opcode_addr_pair = std::pair<opcode_e, addr_mode_e>;
   using instr_cycle_pair = std::pair<opcode_addr_pair, uint16_t>;
@@ -28,12 +28,12 @@ private:
   uint8_t a, x, y, sp, instruction, data, status;
   uint16_t pc, addr;
   uint64_t clock_count;
-  bus& main_bus;
+  bus_c& bus;
   op_table_t op_table;
   std::unordered_map<uint8_t, uint8_t> shift_amount_map;
 
   public:
-  processor(bus&);
+  processor_c(bus_c&);
   void init();
   void reset();
   void execute(number32_t instructions);

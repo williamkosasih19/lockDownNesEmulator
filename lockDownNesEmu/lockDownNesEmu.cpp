@@ -13,7 +13,10 @@
 #include <sdl.h>
 #undef main
 
-
+#include "processor.h"
+#include "bus.h"
+#include "cartridge.h"
+#include <memory>
 
 #include "types.h"
 
@@ -53,6 +56,12 @@ int main()
   bool_t quit = false;
   bool_t random = false;
 
+  // Component initialisation
+  cartridge_c cartridge;
+  bus_c bus(cartridge);
+  processor_c processor(bus);
+
+
   while (true)
   {
     SDL_UpdateTexture(texture, NULL, pixels.data(), 640 * sizeof(Uint32));
@@ -79,8 +88,6 @@ int main()
       continue;
     }
 
-
-
     cout << "< ";
     cin >> command;
     stringstream sstream(command);
@@ -93,7 +100,7 @@ int main()
     }
     else if (command_split[0] == "load")
     {
-      
+      cartridge.load(command_split[1]);
     }
     else if (command_split[0] == "random")
     {

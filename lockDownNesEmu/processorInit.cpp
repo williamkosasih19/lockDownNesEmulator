@@ -1,7 +1,7 @@
 #include "processor.h"
 #include "enum.h"
 
-void processor::init()
+void processor_c::init()
 {
   op_row_t row1 = {instr_cycle_pair(opcode_addr_pair(brk_op, imm_addr), 7),
                    instr_cycle_pair(opcode_addr_pair(ora_op, izx_addr), 6),

@@ -96,3 +96,16 @@ enum addr_mode_e
   izy_addr,
   ind_addr
 };
+
+enum cartridge_mirror_e
+{
+  horizontal_cartridge_mirror,
+  vertical_cartridge_mirror,
+  onescreenlow_cartridge_mirror,
+  onescreenhigh_cartridge_mirror
+};
+enum component_e
+{
+  cpu_component,
+  ppu_component
+};

@@ -151,12 +151,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="cartridge.cpp" />
     <ClCompile Include="lockDownNesEmu.cpp" />
     <ClCompile Include="bus.cpp" />
     <ClCompile Include="processor.cpp" />
     <ClCompile Include="processorInit.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cartridge.h" />
     <ClInclude Include="enum.h" />
     <ClInclude Include="bus.h" />
     <ClInclude Include="outputImpl.h" />

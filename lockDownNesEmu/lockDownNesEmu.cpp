@@ -60,6 +60,7 @@ int main()
   cartridge_c cartridge;
   bus_c bus(cartridge);
   processor_c processor(bus);
+  processor.init();
 
 
   while (true)
@@ -89,10 +90,10 @@ int main()
     }
 
     cout << "< ";
-    cin >> command;
+    getline(cin, command);
     stringstream sstream(command);
     index32_t i = 0;
-    while (sstream.good() && i < 10) sstream >> command_split[i];
+    while (sstream.good() && i < 10) sstream >> command_split[i++];
     
     if (command_split[0] == "help")
     {
@@ -105,6 +106,20 @@ int main()
     else if (command_split[0] == "random")
     {
       random = true;
+    }
+    else if (command_split[0] == "cycle")
+    {
+      number32_t cycles = stoi(command_split[1]);
+      for (index32_t i = 0; i < cycles; i++)
+        processor.execute();
+    }
+    else if (command_split[0] == "querycpu")
+    {
+      processor.query();
+    }
+    else if (command_split[0] == "reset")
+    {
+      processor.reset();
     }
   }
 

@@ -50,6 +50,12 @@
     <ClInclude Include="cartridge.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="cartridgeImpl.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="busImpl.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\compiled\SDL2main.lib">

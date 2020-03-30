@@ -7,6 +7,7 @@
 
 **************************************************************** */
 
+#include <string>
 #include <cstdint>
 #include <array>
 #include <unordered_map>
@@ -25,16 +26,21 @@ private:
   void set_flag(const cpu_flags_e, const bool_t value);
   bool_t get_flag(const cpu_flags_e);
 
-  uint8_t a, x, y, sp, instruction, data, status;
-  uint16_t pc, addr;
+  uint8_t a, x, y, sp, instruction, data, status, cycles;
+  uint16_t pc, addr, addr_relative;
   uint64_t clock_count;
   bus_c& bus;
   op_table_t op_table;
-  std::unordered_map<uint8_t, uint8_t> shift_amount_map;
+
+  // for debugging purposes.
+  std::unordered_map<opcode_e, std::string> opcode_string_map;
+  std::unordered_map<addr_mode_e, std::string> addr_string_map;
+  uint8_t op, addr_mode;
 
   public:
   processor_c(bus_c&);
   void init();
   void reset();
-  void execute(number32_t instructions);
+  void execute();
+  void query();
 };

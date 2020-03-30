@@ -277,13 +277,77 @@ void processor_c::init()
 
   op_table = {row1, row2,  row3,  row4,  row5,  row6,  row7,  row8,
               row9, row10, row11, row12, row13, row14, row15, row16};
-  
-  shift_amount_map[cpu_flags_e::carry_cpu_fl] = 0;
-  shift_amount_map[cpu_flags_e::zero_cpu_fl] = 1;
-  shift_amount_map[cpu_flags_e::disable_interrupt_cpu_fl] = 2;
-  shift_amount_map[cpu_flags_e::decimal_cpu_fl] = 3;
-  shift_amount_map[cpu_flags_e::break_cpu_fl] = 4;
-  shift_amount_map[cpu_flags_e::unused_cpu_fl] = 5;
-  shift_amount_map[cpu_flags_e::overflow_cpu_fl] = 6;
-  shift_amount_map[cpu_flags_e::negative_cpu_fl] = 7;
+
+  opcode_string_map[adc_op] = "ADC";
+  opcode_string_map[and_op] = "AND";
+  opcode_string_map[asl_op] = "ASL";
+  opcode_string_map[bcc_op] = "BCC";
+  opcode_string_map[bcs_op] = "BCS";
+  opcode_string_map[beq_op] = "BEQ";
+  opcode_string_map[bit_op] = "BIT";
+  opcode_string_map[bmi_op] = "BMI";
+  opcode_string_map[bne_op] = "BNE";
+  opcode_string_map[bpl_op] = "BPL";
+  opcode_string_map[brk_op] = "BRK";
+  opcode_string_map[bvc_op] = "BVC";
+  opcode_string_map[bvs_op] = "BVS";
+  opcode_string_map[clc_op] = "CLC";
+  opcode_string_map[cld_op] = "CLD";
+  opcode_string_map[cli_op] = "CLI";
+  opcode_string_map[clv_op] = "CLV";
+  opcode_string_map[cmp_op] = "CMP";
+  opcode_string_map[cpx_op] = "CPX";
+  opcode_string_map[cpy_op] = "CPY";
+  opcode_string_map[dec_op] = "DEC";
+  opcode_string_map[dex_op] = "DEX";
+  opcode_string_map[dey_op] = "DEY";
+  opcode_string_map[eor_op] = "EOR";
+  opcode_string_map[inc_op] = "INC";
+  opcode_string_map[iny_op] = "INY";
+  opcode_string_map[jmp_op] = "JMP";
+  opcode_string_map[jsr_op] = "JSR";
+  opcode_string_map[lda_op] = "LDA";
+  opcode_string_map[ldx_op] = "LDX";
+  opcode_string_map[ldy_op] = "LDY";
+  opcode_string_map[lsr_op] = "LSR";
+  opcode_string_map[nop_op] = "NOP";
+  opcode_string_map[ora_op] = "ORA";
+  opcode_string_map[pha_op] = "PHA";
+  opcode_string_map[php_op] = "PHP";
+  opcode_string_map[rti_op] = "RTI";
+  opcode_string_map[rts_op] = "RTS";
+  opcode_string_map[sbc_op] = "SBC";
+  opcode_string_map[sec_op] = "SEC";
+  opcode_string_map[sed_op] = "SED";
+  opcode_string_map[sei_op] = "SEI";
+  opcode_string_map[sta_op] = "STA";
+  opcode_string_map[stx_op] = "STX";
+  opcode_string_map[sty_op] = "STY";
+  opcode_string_map[tax_op] = "TAX";
+  opcode_string_map[tay_op] = "TAY";
+  opcode_string_map[tsx_op] = "TSX";
+  opcode_string_map[tsy_op] = "TSY";
+  opcode_string_map[tya_op] = "TYA";
+  opcode_string_map[ror_op] = "ROR";
+  opcode_string_map[ill_op] = "ILL";
+  opcode_string_map[inx_op] = "INX";
+  opcode_string_map[txa_op] = "TXA";
+  opcode_string_map[txs_op] = "TXS";
+  opcode_string_map[pla_op] = "PLA";
+  opcode_string_map[rol_op] = "ROL";
+  opcode_string_map[plp_op] = "PLP";
+
+  addr_string_map[imp_addr] = "IMP";
+  addr_string_map[imm_addr] = "IMM";
+  addr_string_map[abs_addr] = "ABS";
+  addr_string_map[zp_addr] = "ZP";
+  addr_string_map[zpx_addr] = "ZPX";
+  addr_string_map[zpy_addr] = "ZPY";
+  addr_string_map[abx_addr] = "ABX";
+  addr_string_map[aby_addr] = "ABY";
+  addr_string_map[rel_addr] = "REL";
+  addr_string_map[izx_addr] = "IZX";
+  addr_string_map[izy_addr] = "IZY";
+  addr_string_map[ind_addr] = "IND";
+
 }

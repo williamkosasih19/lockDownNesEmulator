@@ -25,7 +25,7 @@ void cartridge_c::load(const string& file_name)
   } header;
 
   ifstream file;
-  file.open(file_name, ifstream::binary);
+  file.open(file_name, ios::binary);
   if (file.is_open())
   {
     file.read((byte_t*)&header, sizeof(header));

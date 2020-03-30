@@ -1,9 +1,12 @@
 #include "processor.h"
 #include "types.h"
 #include "bus.h"
+#include "busImpl.h"
 #include "enum.h"
 
 #include <array>
+#include <iostream>
+#include <bitset>
 
 using namespace std;
 
@@ -26,43 +29,43 @@ void processor_c::reset()
   const uint16_t fetched_high = bus[0xfffd];
   pc = (fetched_high << 8 | fetched_low);
 
+  cycles = 8;
+
   return;
 }
 
-// :TODO: simplify this, this is so ugly
 void processor_c::set_flag(const cpu_flags_e cpu_flag, const bool_t value) 
 {
-  const uint8_t temp_value = uint8_t(1) << shift_amount_map[cpu_flag];
   if (value)
-    status |= temp_value;
+    status |= cpu_flag;
   else
-    status &= (~temp_value);
-  return;
+    status &= (~cpu_flag);
 }
 
 bool_t processor_c::get_flag(const cpu_flags_e cpu_flag)
 {
-  return (status >> shift_amount_map[cpu_flag]) % 2;
+  return (status & cpu_flag);
 }
 
-void processor_c::execute(number32_t instructions)
+void processor_c::execute()
 {
-  // fetch_opcode later here
-  instruction = 0x00; // read from pc address
+  // fetch_opcode from bus(cartridge)
+  instruction = bus.access<cpu_component>(pc);
+  pc++;
 
-  for (index32_t i = 0; i < instructions; i++)
+  if (cycles == 0)
   {
-    const uint8_t lower_half = instruction & 0xff;
-    const uint8_t upper_half = (instruction & 0xff00) >> 4;
+    const uint8_t lower_half = instruction & 0xf;
+    const uint8_t upper_half = instruction >> 4;
     const auto& instr_cycle_pair = op_table[upper_half][lower_half];
 
-    const uint8_t op = instr_cycle_pair.first.first;
-    const uint8_t addr_mode = instr_cycle_pair.first.second;
+    op = instr_cycle_pair.first.first;
+    addr_mode = instr_cycle_pair.first.second;
 
-    const uint8_t cycle = instr_cycle_pair.second;
+    cycles = instr_cycle_pair.second;
     uint8_t additional_cycle = 0;
 
-    bool_t op_extra_cycle = false;
+    bool_t op_additional_cycle = false;
 
     switch (addr_mode_e(addr_mode))
     {
@@ -90,11 +93,11 @@ void processor_c::execute(number32_t instructions)
     case rel_addr:
       addr = bus[pc];
       // Sign extend to 16 bits if the 8-bit offset is negative.
-      if (addr & 0x80) addr |= 0xFF00;
+      if (addr & 0x80) addr_relative |= 0xFF00;
       pc++;
       break;
     case abs_addr:
-      addr = (bus[pc] << 8) | bus[pc];
+      addr = (bus[pc + 1] << 8) | bus[pc];
       pc += 2;
       break;
     case abx_addr: 
@@ -142,8 +145,8 @@ void processor_c::execute(number32_t instructions)
     case izx_addr: 
     {
       const uint16_t ptr = bus[pc];
-      addr = (bus[(ptr + uint16_t(x)) & 0xff] << 8) |
-             bus[(ptr + uint16_t(x) + 1) & 0xff];
+      addr = (bus[(ptr + uint16_t(x) + 1) & 0xff] << 8) |
+             bus[(ptr + uint16_t(x)) & 0xff];
       pc++;
       break;
     }
@@ -168,20 +171,114 @@ void processor_c::execute(number32_t instructions)
     {
       data = bus[addr];
       uint16_t temp = uint16_t(a) + uint16_t(data) +
-                      uint16_t(get_flag(cpu_flags_e::carry_cpu_fl));
-      set_flag(cpu_flags_e::carry_cpu_fl, temp > 255);
-      set_flag(cpu_flags_e::zero_cpu_fl, (temp & 0xff) == 0);
+                      uint16_t(get_flag(carry_cpu_fl));
+      set_flag(carry_cpu_fl, temp > 255);
+      set_flag(zero_cpu_fl, (temp & 0xff) == 0);
       // clang-format off
       set_flag(
-        cpu_flags_e::overflow_cpu_fl, (~((uint16_t)a ^ (uint16_t)data) & 
-          ((uint16_t)a ^ (uint16_t)temp)) & 0x0080);
+        overflow_cpu_fl, (~(uint16_t(a) ^ uint16_t(data)) & 
+          (uint16_t(a) ^ uint16_t(temp))) & 0x0080);
       // clang-format on
       set_flag(cpu_flags_e::negative_cpu_fl, temp & 0x80);
       a = temp & 0xff;
+      op_additional_cycle = true;
       break;
     }
+    // A = A - M - (1 - C)
+    case sbc_op: 
+    {
+      data = bus[addr];
 
+      // Flip the lower half => (lh - 1) 
+      const uint16_t flipped = (uint16_t(data) ^ 0xff);
+
+      uint16_t temp =
+          uint16_t(a) + uint16_t(flipped) + uint16_t(get_flag(carry_cpu_fl));
+      set_flag(carry_cpu_fl, temp > 255);
+      set_flag(zero_cpu_fl, (temp & 0xff) == 0);
+      // clang-format off
+      set_flag(
+        overflow_cpu_fl, (temp ^ flipped) & 
+          (uint16_t(a) ^ temp) & 0x80);
+      // clang-format on
+      set_flag(cpu_flags_e::negative_cpu_fl, temp & 0x80);
+      a = temp & 0xff;
+      op_additional_cycle = true;
+      break;
     }
+    case and_op:
+      data = bus[addr];
+      a = a & data;
+      set_flag(zero_cpu_fl, a == 0);
+      set_flag(negative_cpu_fl, a & 0x80);
+      op_additional_cycle = true;
+      break;
+    case asl_op: 
+    {
+      if (addr_mode != imp_addr)
+        data = bus[addr];
+      uint16_t temp = uint8_t(data) << 1;
+      set_flag(carry_cpu_fl, temp & 0xff00);
+      set_flag(zero_cpu_fl, !(temp & 0xff));
+      set_flag(negative_cpu_fl, temp & 0x80);
+      break;
+    }
+    case bcc_op:
+    {
+      if (!get_flag(carry_cpu_fl))
+      {
+        cycles++;
+        addr = pc + addr_relative;
+
+        if ((addr & 0xff00) != (pc & 0xff00))
+          cycles++;
+
+        pc = addr;
+      }
+      break;
+    }
+    case sec_op:
+      set_flag(carry_cpu_fl, true);
+      break;
+    case sed_op:
+      set_flag(decimal_cpu_fl, true);
+      break;
+    case sei_op:
+      set_flag(disable_interrupt_cpu_fl, true);
+      break;
+    case sta_op:
+      bus[addr] = a;
+      break;
+    case stx_op:
+      bus[addr] = x;
+      break;
+    case sty_op:
+      bus[addr] = y;
+      break;
+    }
+    if (op_additional_cycle)
+      cycles += additional_cycle;
+    set_flag(unused_cpu_fl, true);
 
   }
+  else
+    cycles--;
+}
+
+void processor_c::query() 
+{ 
+  cout << "########## Registers ##########" << endl;
+  printf("a : %u\n", a);
+  printf("x : %u\n", x);
+  printf("y : %u\n", y);
+  printf("pc : %04x\n", pc);
+  printf("status : %s\n", bitset<8>(status).to_string().c_str());
+  cout << "########## Stats ##########" << endl;
+  printf("instruction : %s\n", opcode_string_map[opcode_e(op)].c_str());
+  printf("adressing mode : %s\n",
+         addr_string_map[addr_mode_e(addr_mode)].c_str());
+  printf("cycles left %u\n", cycles);
+  printf("addr : %04x\n", addr);
+  printf("addr_relative : %04x\n", addr_relative);
+  printf("\n\n");
 }

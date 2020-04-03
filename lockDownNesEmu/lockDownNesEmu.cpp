@@ -6,9 +6,11 @@
 #include <sstream>
 #include <vector>
 #include <numeric>
-#include <windows.h>
-
 #include <cstdlib>
+#include <memory>
+#include <array>
+
+#include <windows.h>
 
 #include <sdl.h>
 #undef main
@@ -16,7 +18,7 @@
 #include "processor.h"
 #include "bus.h"
 #include "cartridge.h"
-#include <memory>
+#include "ppu.h"
 
 #include "types.h"
 
@@ -38,34 +40,33 @@ int main()
   SDL_Init(SDL_INIT_VIDEO);
 
   SDL_Window* window =
-      SDL_CreateWindow("SDL2 Pixel Drawing", SDL_WINDOWPOS_UNDEFINED,
+      SDL_CreateWindow("LockDown Nes Emulator", SDL_WINDOWPOS_UNDEFINED,
                        SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
 
   auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
   SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                           SDL_TEXTUREACCESS_STATIC, 640, 480);
+                                           SDL_TEXTUREACCESS_STATIC, 256, 240);
 
-  vector<unsigned int> pixels;
-  pixels.reserve(640 * 480);
+  array<unsigned int, 256 * 240> vidmem;
 
-  for (int i = 0; i < 640 * 480; i++)
+  for (int i = 0; i < vidmem.size(); i++)
   {
-    pixels.push_back(0);
+    vidmem[i] = 0;
   }
 
   bool_t quit = false;
-  bool_t random = false;
+  bool_t static_noise = false;
 
   // Component initialisation
   cartridge_c cartridge;
   bus_c bus(cartridge);
   processor_c processor(bus);
+  ppu_c ppu(vidmem, cartridge);
   processor.init();
-
 
   while (true)
   {
-    SDL_UpdateTexture(texture, NULL, pixels.data(), 640 * sizeof(Uint32));
+    SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));
 
     //SDL_WaitEvent(&event);
 
@@ -79,13 +80,18 @@ int main()
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
-    if (random)
+
+    const auto random = [&vidmem]() {
+      for (index32_t i = 0; i < vidmem.size(); i++)
+      {
+        vidmem[i] = rand() % (numeric_limits<unsigned int>::max)();
+      }
+    };
+
+    if (static_noise)
     {
       Sleep(100);
-      for (index32_t i = 0; i < 640 * 480; i++)
-      {
-        pixels[i] = rand() % (numeric_limits<unsigned int>::max)();
-      }
+      random();
       continue;
     }
 
@@ -103,9 +109,13 @@ int main()
     {
       cartridge.load(command_split[1]);
     }
-    else if (command_split[0] == "random")
+    else if (command_split[0] == "noizze")
     {
-      random = true;
+      static_noise = true;
+    }
+    else if (command_split[0] == "artifact")
+    {
+      random();
     }
     else if (command_split[0] == "cycle")
     {

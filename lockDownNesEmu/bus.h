@@ -23,6 +23,4 @@ private:
 public:
   bus_c(cartridge_c&);
   uint8_t& operator[](const uint16_t address);
-  template <component_e> uint8_t& access(const uint16_t);
-
 };

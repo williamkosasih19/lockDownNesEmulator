@@ -34,7 +34,7 @@ void cartridge_c::load(const string& file_name)
     
     mapper_id = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
 
-    if (header.mapper1 % 2)
+    if (header.mapper1 & 0x1)
       mirror = vertical_cartridge_mirror;
     else
       mirror = horizontal_cartridge_mirror;
@@ -57,24 +57,20 @@ void cartridge_c::load(const string& file_name)
   }
 }
 
-template<component_e component>
-uint8_t& cartridge_c::access(const uint16_t address)
+uint8_t& cartridge_c::operator[](const uint16_t address)
 {
   switch (mapper_id)
   {
   case 0:
-    if (component == cpu_component)
+    if (address >= 0x8000 && address <= 0xffff)
     {
       return program_memory[(program_banks > 1) ? address % 32768
                                                 : address % 16384];
     }
-    else if (component == ppu_component)
-    {
-      if (address >= 0x00 && address <= 0x1FFF)
+    else if (address >= 0x00 && address <= 0x1FFF)
       {
         return character_memory[address];
       }
-    }
     break;
   }
 }

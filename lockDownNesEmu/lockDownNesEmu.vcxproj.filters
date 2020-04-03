@@ -30,6 +30,9 @@
     <ClCompile Include="cartridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ppu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="processor.h">
@@ -50,10 +53,7 @@
     <ClInclude Include="cartridge.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="cartridgeImpl.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="busImpl.h">
+    <ClInclude Include="ppu.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

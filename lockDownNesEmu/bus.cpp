@@ -17,7 +17,7 @@ uint8_t& bus_c::operator[](const uint16_t address)
   }
   if (address >= 0x8000 && address <= 0xffff)
   {
-    return cartridge.access<cpu_component>(address);
+    return cartridge[address];
   }
   if (address >= 0x2000 && address <= 0x3fff)
   {

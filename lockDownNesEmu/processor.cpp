@@ -1,7 +1,6 @@
 #include "processor.h"
 #include "types.h"
 #include "bus.h"
-#include "busImpl.h"
 #include "enum.h"
 
 #include <array>
@@ -50,7 +49,7 @@ bool_t processor_c::get_flag(const cpu_flags_e cpu_flag)
 void processor_c::execute()
 {
   // fetch_opcode from bus(cartridge)
-  instruction = bus.access<cpu_component>(pc);
+  instruction = bus[pc];
   pc++;
 
   if (cycles == 0)

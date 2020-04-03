@@ -27,12 +27,13 @@ private:
   uint8_t character_banks;
   uint8_t char_banks;
 
-  cartridge_mirror_e mirror;
+  
 
 public:
   void load(const std::string& file_name);
+  uint8_t& operator[](const uint16_t adress);
   bool_t image_valid;
-  template <component_e> uint8_t& access(const uint16_t);
   uint8_t address_invalid;
 
+  cartridge_mirror_e mirror;
 };

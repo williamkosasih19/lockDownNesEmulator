@@ -3,6 +3,8 @@
 #include "bus.h"
 #include "enum.h"
 
+#include "outputImpl.h"
+
 #include <array>
 #include <iostream>
 #include <bitset>
@@ -24,8 +26,8 @@ void processor_c::reset()
   status = 0;
 
   // Set pc to entry address at (*(0xfffc + 1) << 8) | *(0xfffc)
-  const uint16_t fetched_low = bus[0xfffc];
-  const uint16_t fetched_high = bus[0xfffd];
+  const uint16_t fetched_low = bus.cpu_read(0xfffc);
+  const uint16_t fetched_high = bus.cpu_read(0xfffd);
   pc = (fetched_high << 8 | fetched_low);
 
   cycles = 8;
@@ -48,8 +50,10 @@ bool_t processor_c::get_flag(const cpu_flags_e cpu_flag)
 
 void processor_c::execute()
 {
+
+
   // fetch_opcode from bus(cartridge)
-  instruction = bus[pc];
+  instruction = bus.cpu_read(pc);
   pc++;
 
   if (cycles == 0)
@@ -76,33 +80,33 @@ void processor_c::execute()
       pc++;
       break;
     case zp_addr:
-      addr = bus[pc];
+      addr = bus.cpu_read(pc);
       addr &= 0xff;
       pc++;
       break;
     case zpx_addr:
-      addr = bus[pc] + x;
+      addr = bus.cpu_read(pc) + x;
       addr &= 0xff;
       pc++;
       break;
     case zpy_addr:
-      addr = bus[pc++] + y;
+      addr = bus.cpu_read(pc++) + y;
       addr &= 0xff;
       break;
     case rel_addr:
-      addr = bus[pc];
+      addr = bus.cpu_read(pc);
       // Sign extend to 16 bits if the 8-bit offset is negative.
       if (addr & 0x80) addr_relative |= 0xFF00;
       pc++;
       break;
     case abs_addr:
-      addr = (bus[pc + 1] << 8) | bus[pc];
+      addr = (bus.cpu_read(pc + 1) << 8) | bus.cpu_read(pc);
       pc += 2;
       break;
     case abx_addr: 
     {
-      const uint16_t lower_half = bus[pc];
-      const uint16_t upper_half = bus[pc + 1];
+      const uint16_t lower_half = bus.cpu_read(pc);
+      const uint16_t upper_half = bus.cpu_read(pc + 1);
       addr = ((upper_half << 8) | lower_half) + x;
       // If the addition with x results in the page  incremented,
       // then add an additional cycle.
@@ -113,8 +117,8 @@ void processor_c::execute()
     }
     case aby_addr: 
     {
-      const uint16_t lower_half = bus[pc];
-      const uint16_t upper_half = bus[pc + 1];
+      const uint16_t lower_half = bus.cpu_read(pc);
+      const uint16_t upper_half = bus.cpu_read(pc + 1);
       addr = ((upper_half << 8) | lower_half) + y;
       // If the addition with y results in the page  incremented,
       // then add an additional cycle.
@@ -125,36 +129,36 @@ void processor_c::execute()
     }
     case ind_addr: 
     {
-      const uint16_t lower_half = bus[pc];
-      const uint16_t upper_half = bus[pc + 1];
+      const uint16_t lower_half = bus.cpu_read(pc);
+      const uint16_t upper_half = bus.cpu_read(pc + 1);
       const uint16_t ptr = (upper_half << 8) | lower_half;
       if (lower_half == 0xff)
       {
         // Simulate the bug where the lower 8 bit overflow but
         // the upper half doesn't get incremented.
-        addr = (bus[ptr & 0xff00] | bus[ptr]);
+        addr = (bus.cpu_read(ptr & 0xff00) | bus.cpu_read(ptr));
       }
       else
       {
-        addr = (bus[ptr + 1] | bus[ptr]);
+        addr = (bus.cpu_read(ptr + 1) | bus.cpu_read(ptr));
       }
       pc += 2;
       break;
     }
     case izx_addr: 
     {
-      const uint16_t ptr = bus[pc];
-      addr = (bus[(ptr + uint16_t(x) + 1) & 0xff] << 8) |
-             bus[(ptr + uint16_t(x)) & 0xff];
+      const uint16_t ptr = bus.cpu_read(pc);
+      addr = (bus.cpu_read((ptr + uint16_t(x) + 1) & 0xff) << 8) |
+             bus.cpu_read((ptr + uint16_t(x)) & 0xff);
       pc++;
       break;
     }
 
     case izy_addr: 
     {
-      const uint16_t ptr = bus[pc];
-      uint16_t lower_half = bus[ptr & 0xff];
-      uint16_t upper_half = bus[(ptr + 1) & 0xff];
+      const uint16_t ptr = bus.cpu_read(pc);
+      uint16_t lower_half = bus.cpu_read(ptr & 0xff);
+      uint16_t upper_half = bus.cpu_read((ptr + 1) & 0xff);
       addr = ((upper_half << 8) | lower_half) + y;
       if ((addr & 0xff00) != (upper_half << 8))
         additional_cycle += 1;
@@ -168,7 +172,7 @@ void processor_c::execute()
     {
     case adc_op: 
     {
-      data = bus[addr];
+      data = bus.cpu_read(addr);
       uint16_t temp = uint16_t(a) + uint16_t(data) +
                       uint16_t(get_flag(carry_cpu_fl));
       set_flag(carry_cpu_fl, temp > 255);
@@ -186,7 +190,7 @@ void processor_c::execute()
     // A = A - M - (1 - C)
     case sbc_op: 
     {
-      data = bus[addr];
+      data = bus.cpu_read(addr);
 
       // Flip the lower half => (lh - 1) 
       const uint16_t flipped = (uint16_t(data) ^ 0xff);
@@ -206,7 +210,7 @@ void processor_c::execute()
       break;
     }
     case and_op:
-      data = bus[addr];
+      data = bus.cpu_read(addr);
       a = a & data;
       set_flag(zero_cpu_fl, a == 0);
       set_flag(negative_cpu_fl, a & 0x80);
@@ -215,7 +219,7 @@ void processor_c::execute()
     case asl_op: 
     {
       if (addr_mode != imp_addr)
-        data = bus[addr];
+        data = bus.cpu_read(addr);
       uint16_t temp = uint8_t(data) << 1;
       set_flag(carry_cpu_fl, temp & 0xff00);
       set_flag(zero_cpu_fl, !(temp & 0xff));
@@ -246,13 +250,13 @@ void processor_c::execute()
       set_flag(disable_interrupt_cpu_fl, true);
       break;
     case sta_op:
-      bus[addr] = a;
+      bus.cpu_write(addr, a);
       break;
     case stx_op:
-      bus[addr] = x;
+      bus.cpu_write(addr, x);
       break;
     case sty_op:
-      bus[addr] = y;
+      bus.cpu_write(addr, y);
       break;
     }
     if (op_additional_cycle)
@@ -262,6 +266,11 @@ void processor_c::execute()
   }
   else
     cycles--;
+  verbose_print("***********************************\n"
+                "operation : %s\n"
+                "addressing mode : %s\n",
+                opcode_string_map[opcode_e(op)],
+                addr_string_map[addr_mode_e(addr_mode)]);
 }
 
 void processor_c::query() 

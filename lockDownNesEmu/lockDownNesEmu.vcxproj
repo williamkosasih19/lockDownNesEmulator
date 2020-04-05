@@ -154,6 +154,8 @@
     <ClCompile Include="cartridge.cpp" />
     <ClCompile Include="lockDownNesEmu.cpp" />
     <ClCompile Include="bus.cpp" />
+    <ClCompile Include="mapper.cpp" />
+    <ClCompile Include="mapper_000.cpp" />
     <ClCompile Include="ppu.cpp" />
     <ClCompile Include="processor.cpp" />
     <ClCompile Include="processorInit.cpp" />
@@ -162,6 +164,8 @@
     <ClInclude Include="cartridge.h" />
     <ClInclude Include="enum.h" />
     <ClInclude Include="bus.h" />
+    <ClInclude Include="mapper.h" />
+    <ClInclude Include="mapper_000.h" />
     <ClInclude Include="outputImpl.h" />
     <ClInclude Include="ppu.h" />
     <ClInclude Include="processor.h" />

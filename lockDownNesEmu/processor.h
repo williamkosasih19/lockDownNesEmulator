@@ -12,9 +12,10 @@
 #include <array>
 #include <unordered_map>
 
-#include "bus.h"
 #include "types.h"
 #include "enum.h"
+
+class bus_c;
 
 class processor_c{
 private:

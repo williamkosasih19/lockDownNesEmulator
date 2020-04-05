@@ -1,10 +1,14 @@
+#include <vector>
+#include <string>
+#include <fstream>
+#include <memory>
+
 #include "cartridge.h"
 #include "enum.h"
 #include "types.h"
 
-#include <vector>
-#include <string>
-#include <fstream>
+#include "mapper.h"
+#include "mapper_000.h"
 
 using namespace std;
 
@@ -55,22 +59,57 @@ void cartridge_c::load(const string& file_name)
     image_valid = true;
     file.close();
   }
-}
 
-uint8_t& cartridge_c::operator[](const uint16_t address)
-{
   switch (mapper_id)
   {
   case 0:
-    if (address >= 0x8000 && address <= 0xffff)
-    {
-      return program_memory[(program_banks > 1) ? address % 32768
-                                                : address % 16384];
-    }
-    else if (address >= 0x00 && address <= 0x1FFF)
-      {
-        return character_memory[address];
-      }
+    mapper_ptr = make_shared<mapper_000_c>(program_banks, character_banks);
+    break;
+  case 1:
+
     break;
   }
+}
+
+bool_t cartridge_c::cpu_read(const uint16_t address, uint8_t& data)
+{
+  uint32_t mapped_address;
+  if (mapper_ptr->map_cpu_read(address, mapped_address))
+  {
+    data = program_memory[mapped_address];
+    return true;
+  }
+  else
+    return false;
+}
+
+bool_t cartridge_c::cpu_write(const uint16_t address, uint8_t data)
+{
+  uint32_t mapped_address;
+  if (mapper_ptr->map_cpu_write(address, mapped_address))
+  {
+    program_memory[address] = data;
+    return true;
+  }
+  return false;
+}
+
+bool_t cartridge_c::ppu_read(const uint16_t address, uint8_t& data) {
+  uint32_t mapped_address;
+  if (mapper_ptr->map_ppu_read(address, mapped_address))
+  {
+    data = character_memory[address];
+    return true;
+  }
+  return false;
+}
+bool_t cartridge_c::ppu_write(const uint16_t address, const uint8_t data)
+{
+  uint32_t mapped_address;
+  if (mapper_ptr->map_ppu_write(address, mapped_address))
+  {
+    character_memory[mapped_address] = address;
+    return true;
+  }
+  return false;
 }

@@ -80,52 +80,182 @@ ppu_c::ppu_c(std::array<uint32_t, 256 * 240>& vid, cartridge_c& cart)
   scanline = 0;
 }
 
-uint8_t& ppu_c::ppu_access(uint16_t address) 
+uint8_t ppu_c::cpu_read(const uint16_t address)
 {
-  address &= 0x3fff;
-  if (address >= 0x0000 && address <= 0x1FFF)
+  uint8_t data = 0x00;;
+  switch (address)
   {
-    return cartridge[address];
+  case 0x00:
+  case 0x01:
+  case 0x03:
+  case 0x04:
+  case 0x05:
+  case 0x06:
+    break;
+  case 0x02:
+    data = (status.value & 0xe0) | (data_buffer & 0x1f);
+    status.vblank = 0;
+    load_low_byte = false;
+    break;
+  case 0x07:
+    data = data_buffer;
+    data_buffer = ppu_read(vram.value);
+    if (vram.value >= 0x3f00) data = data_buffer;
+    vram.value += (control.vram_increment_mode ? 32 : 1);
+    break;
+  }
+  return data;
+}
+
+void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
+{
+  switch (address)
+  {
+  case 0x00:
+    control.value = data;
+    temp_vram.nametable_x = control.name_table_x;
+    temp_vram.nametable_y = control.name_table_y;
+    break;
+  case 0x01:
+    mask.value = data;
+    break;
+  case 0x02:
+  case 0x03:
+  case 0x04:
+    break;
+  case 0x05:
+    if (load_low_byte)
+    {
+      temp_vram.fine_y = data & 0x07;
+      temp_vram.coarse_y = data >> 3;
+      load_low_byte = false;
+    }
+    else
+    {
+      fine_x = data & 0x07;
+      temp_vram.coarse_x = data >> 3;
+      load_low_byte = true;
+    }
+  case 0x06:
+    if (load_low_byte)
+    {
+      temp_vram.value = (temp_vram.value & 0xff00) | data;
+      vram = temp_vram;
+      load_low_byte = false;
+    }
+    else
+    {
+      temp_vram.value = uint16_t((data & 0x3f) << 8 | (temp_vram.value & 0xff));
+      load_low_byte = true;
+    }
+    break;
+    case 0x07:
+    ppu_write(vram.value, data);
+    vram.value += (control.vram_increment_mode ? 32 : 1);
+      break;
+  }
+}
+
+uint8_t ppu_c::ppu_read(uint16_t address)
+{
+  uint8_t data = 0x00;
+  address &= 0x3fff;
+  if (cartridge.ppu_read(address, data))
+  {
+
+  }
+  else if (address >= 0x00 && address <= 0x1fff)
+  {
+    data = pattern_table[(address & 0x1000) >> 12][address & 0xfff];
   }
   else if (address >= 0x2000 && address <= 0x3eff)
   {
-    address &= 0xfff;
+    address &= 0x0fff;
     if (cartridge.mirror == vertical_cartridge_mirror)
     {
-      if (address >= 0 && address <= 0x3ff)
-        return name_table[0][address & 0x03ff];
+      if (address >= 0x00 && address <= 0x3ff)
+        data = name_table[0][address & 0x3ff];
       else if (address >= 0x400 && address <= 0x7ff)
-        return name_table[1][address & 0x3ff];
+        data = name_table[1][address & 0x3ff];
       else if (address >= 0x800 && address <= 0xbff)
-        return name_table[0][address & 0x3ff];
-      else if (address >= 0xc00 && address <= 0xFFF)
-        return name_table[1][address & 0x3ff];
+        data = name_table[0][address & 0x3ff];
+      else if (address >= 0xc00 && address <= 0xfff)
+        data = name_table[1][address & 0x3ff];
     }
     else if (cartridge.mirror == horizontal_cartridge_mirror)
     {
-      if (address >= 0 && address <= 0x3ff)
-        return name_table[0][address & 0x03ff];
+      if (address >= 0x00 && address <= 0x3ff)
+        data = name_table[0][address & 0x3ff];
       else if (address >= 0x400 && address <= 0x7ff)
-        return name_table[0][address & 0x3ff];
+        data = name_table[0][address & 0x3ff];
       else if (address >= 0x800 && address <= 0xbff)
-        return name_table[1][address & 0x3ff];
-      else if (address >= 0xc00 && address <= 0xFFF)
-        return name_table[1][address & 0x3ff];
+        data = name_table[1][address & 0x3ff];
+      else if (address >= 0xc00 && address <= 0xfff)
+        data = name_table[1][address & 0x3ff];
+    }
+    else if (address >= 0x3f00 && address <= 0x3fff)
+    {
+      address &= 0x1f;
+		if (address == 0x0010) address = 0x0000;
+		if (address == 0x0014) address = 0x0004;
+		if (address == 0x0018) address = 0x0008;
+		if (address == 0x001C) address = 0x000C;
+		data = palette_memory[address] & (mask.grayscale ? 0x30 : 0x3F);
     }
   }
-  else if (address >= 0x3f00 && address <= 0x3fff)
+  return data;
+}
+
+void ppu_c::ppu_write(uint16_t address, const uint8_t data)
+{
+  address &= 0x3fff;
+  if (cartridge.ppu_write(address, data))
   {
-    address &= 0x1f;
-    if (address == 0x10)
-      address = 0x0;
-    if (address == 0x14)
-      address = 0x4;
-    if (address == 0x18)
-      address = 0x8;
-    if (address == 0x1c)
-      address = 0xc;
-    return palette_memory[address];
   }
+  else if (address >= 0x00 && address <= 0x1fff)
+  {
+    pattern_table[(address & 0x1000) >> 12][address & 0xfff] = data;
+  }
+  else if (address >= 0x2000 && address <= 0x3eff)
+  {
+    address &= 0x0fff;
+    if (cartridge.mirror == vertical_cartridge_mirror)
+    {
+      if (address >= 0x00 && address <= 0x3ff)
+        name_table[0][address & 0x3ff] = data;
+      else if (address >= 0x400 && address <= 0x7ff)
+        name_table[1][address & 0x3ff] = data;
+      else if (address >= 0x800 && address <= 0xbff)
+        name_table[0][address & 0x3ff] = data;
+      else if (address >= 0xc00 && address <= 0xfff)
+        name_table[1][address & 0x3ff] = data;
+    }
+    else if (cartridge.mirror == horizontal_cartridge_mirror)
+    {
+      if (address >= 0x00 && address <= 0x3ff)
+        name_table[0][address & 0x3ff] = data;
+      else if (address >= 0x400 && address <= 0x7ff)
+        name_table[0][address & 0x3ff] = data;
+      else if (address >= 0x800 && address <= 0xbff)
+        name_table[1][address & 0x3ff] = data;
+      else if (address >= 0xc00 && address <= 0xfff)
+        name_table[1][address & 0x3ff] = data;
+    }
+    else if (address >= 0x3f00 && address <= 0x3fff)
+    {
+      address &= 0x1f;
+      if (address == 0x0010)
+        address = 0x0000;
+      if (address == 0x0014)
+        address = 0x0004;
+      if (address == 0x0018)
+        address = 0x0008;
+      if (address == 0x001C)
+        address = 0x000C;
+      palette_memory[address] = data;
+    }
+  }
+  return;
 }
 
 void ppu_c::clock()
@@ -162,10 +292,10 @@ void ppu_c::clock()
           // Load the next 8 bits worth of data to the shifters.
           load_bg_shifter();
 
-          next.bg_tile_id = ppu_access(0x2000 | (vram.value & 0xfff));
+          next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
           break;
         case 2:
-          next.bg_tile_attribute = ppu_access(
+          next.bg_tile_attribute = ppu_read(
               0x23c0 | (vram.nametable_y << 11) | (vram.nametable_x << 10) |
               ((vram.coarse_x >> 2) << 3) | (vram.coarse_y >> 2));
           if (vram.coarse_y & 0x2)
@@ -176,12 +306,12 @@ void ppu_c::clock()
           break;
           case 4:
           next.bg_tile_lsb =
-              ppu_access((control.background_pattern_table << 12) +
+              ppu_read((control.background_pattern_table << 12) +
                          (uint16_t(next.bg_tile_id) << 4) + vram.fine_y);
             break;
           case 6:
             next.bg_tile_msb =
-                ppu_access((control.background_pattern_table << 12) +
+                ppu_read((control.background_pattern_table << 12) +
                            (uint16_t(next.bg_tile_id) << 4) + vram.fine_y + 8);
             break;
           case 7:
@@ -232,7 +362,7 @@ void ppu_c::clock()
 
     if (cycle == 338 || cycle == 340)
     {
-      next.bg_tile_id = ppu_access(0x2000 | (vram.value & 0xfff));
+      next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
     }
 
     if (scanline == -1 && cycle >= 200 && cycle < 305)
@@ -265,7 +395,7 @@ void ppu_c::clock()
                     uint8_t(bool_t(bg_msb_attribute_shifter & bit_selector)) << 1);
     }
 
-    vidmem[cycle - 1] = palette_table[ppu_access(0x3f00 + (bg_palette << 2) + bg_pixel) & 0x3f].to_rgba(); 
+    vidmem[cycle - 1] = palette_table[ppu_read(0x3f00 + (bg_palette << 2) + bg_pixel) & 0x3f].to_rgba(); 
 
     cycle++;
     if (cycle > 340)

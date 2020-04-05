@@ -13,6 +13,7 @@
 
 #include "enum.h"
 #include "types.h"
+#include "mapper.h"
 
 class mapper;
 
@@ -27,13 +28,18 @@ private:
   uint8_t character_banks;
   uint8_t char_banks;
 
-  
+  std::shared_ptr<mapper_c> mapper_ptr;
 
 public:
   void load(const std::string& file_name);
-  uint8_t& operator[](const uint16_t adress);
   bool_t image_valid;
   uint8_t address_invalid;
+
+  bool_t cpu_read(const uint16_t address, uint8_t& data);
+  bool_t cpu_write(const uint16_t address, const uint8_t data);
+
+  bool_t ppu_read(const uint16_t address, uint8_t& data);
+  bool_t ppu_write(const uint16_t address, const uint8_t data);
 
   cartridge_mirror_e mirror;
 };

@@ -24,6 +24,10 @@
 
 using namespace std;
 
+bool_t verbose;
+
+
+
 int main()
 { 
   cout << "Lockdown Nes Emulator v0.01" << endl;
@@ -59,10 +63,20 @@ int main()
 
   // Component initialisation
   cartridge_c cartridge;
-  bus_c bus(cartridge);
-  processor_c processor(bus);
   ppu_c ppu(vidmem, cartridge);
+  bus_c bus(cartridge, ppu);
+  processor_c processor(bus);
+  bus.plug_in_processor(processor);
   processor.init();
+
+  SDL_TimerID timer;
+
+  const auto timer_call_back = [&](uint32_t interval,
+    void* param) 
+  { 
+    bus.clock();
+    return interval;
+  };
 
   while (true)
   {
@@ -130,6 +144,15 @@ int main()
     else if (command_split[0] == "reset")
     {
       processor.reset();
+    }
+    else if (command_split[0] == "verbose")
+    {
+      if (command_split[1] == "true") verbose = true;
+      else verbose = false;
+    }
+    else if (command_split[0] == "run")
+    {
+      timer = SDL_AddTimer(50, timer_call_back, nullptr);
     }
   }
 

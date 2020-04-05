@@ -29,8 +29,11 @@ public:
 
   uint8_t& ppu_access(uint16_t address);
 
-  void cpu_write(uint16_t address, const uint8_t data);
-  uint8_t cpu_read(uint16_t address);
+  void cpu_write(const uint16_t address, const uint8_t data);
+  uint8_t cpu_read(const uint16_t address);
+
+  uint8_t ppu_read(uint16_t address);
+  void ppu_write(uint16_t address, const uint8_t data);
 
   bool_t nmi;
   bool_t frame_complete;
@@ -110,7 +113,9 @@ private:
   loopy_register temp_vram;
   loopy_register vram;
 
-  bool_t load_high_byte;
+  uint8_t data_buffer;
+
+  bool_t load_low_byte;
 
   struct
   {

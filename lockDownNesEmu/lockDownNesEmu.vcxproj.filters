@@ -33,6 +33,12 @@
     <ClCompile Include="ppu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mapper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mapper_000.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="processor.h">
@@ -54,6 +60,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="ppu.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mapper_000.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -27,6 +27,8 @@ private:
   void set_flag(const cpu_flags_e, const bool_t value);
   bool_t get_flag(const cpu_flags_e);
 
+  uint16_t bank_relative_addr;
+
   uint8_t a, x, y, sp, instruction, data, status, cycles;
   uint16_t pc, addr, addr_relative;
   uint64_t clock_count;
@@ -44,4 +46,7 @@ private:
   void reset();
   void execute();
   void query();
+
+  void irq();
+  void nmi();
 };

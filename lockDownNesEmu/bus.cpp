@@ -16,9 +16,9 @@ bus_c::bus_c(cartridge_c& main_cartridge, ppu_c& ppu)
   cycle = 0;
 }
 
-void bus_c::plug_in_processor(processor_c& processor)
+void bus_c::plug_in_processor(processor_c* const processor_ptr)
 {
-  processor_ptr = make_shared<processor_c>(&processor);
+  this->processor_ptr = processor_ptr;
   return;
 }
 
@@ -71,6 +71,7 @@ void bus_c::clock()
   if (cycle == 0)
     processor_ptr->execute();
   ppu.clock();
-    
+  if (ppu.nmi)
+    processor_ptr->nmi();
   cycle = (cycle + 1) % 3;
 }

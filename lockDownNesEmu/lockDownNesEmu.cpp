@@ -26,12 +26,10 @@ using namespace std;
 
 bool_t verbose;
 
-
-
 int main()
 { 
   cout << "Lockdown Nes Emulator v0.01" << endl;
-  cout << "   William Kosasih, 27 March 2020" << endl;
+  cout << "    27 March 2020" << endl;
   cout << endl;
   cout << "Type help for help" << endl;
   cout << "> ready!" << endl;
@@ -51,7 +49,7 @@ int main()
   SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
                                            SDL_TEXTUREACCESS_STATIC, 256, 240);
 
-  array<unsigned int, 256 * 240> vidmem;
+  array<unsigned int, 340 * 260> vidmem;
 
   for (int i = 0; i < vidmem.size(); i++)
   {
@@ -66,17 +64,10 @@ int main()
   ppu_c ppu(vidmem, cartridge);
   bus_c bus(cartridge, ppu);
   processor_c processor(bus);
-  bus.plug_in_processor(processor);
   processor.init();
+  bus.plug_in_processor(&processor);
 
-  SDL_TimerID timer;
-
-  const auto timer_call_back = [&](uint32_t interval,
-    void* param) 
-  { 
-    bus.clock();
-    return interval;
-  };
+  uint64_t cycle = 0;
 
   while (true)
   {
@@ -152,7 +143,24 @@ int main()
     }
     else if (command_split[0] == "run")
     {
-      timer = SDL_AddTimer(50, timer_call_back, nullptr);
+      while (true)
+      {
+        if (cycle >= 500)
+        {
+          cycle = 0;
+          SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));
+
+          SDL_RenderClear(renderer);
+          SDL_RenderCopy(renderer, texture, NULL, NULL);
+          SDL_RenderPresent(renderer);
+        }
+
+        const uint32_t first_tick = SDL_GetTicks();
+        bus.clock();
+        const uint32_t second_tick = SDL_GetTicks();
+        cycle++;
+        //SDL_Delay(5);
+      }
     }
   }
 

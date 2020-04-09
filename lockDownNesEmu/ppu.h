@@ -24,7 +24,7 @@ struct pixel_s
 class ppu_c
 {
 public:
-  ppu_c(std::array<uint32_t, 256 * 240>&, cartridge_c&);
+  ppu_c(std::array<uint32_t, 340 * 260>&, cartridge_c&);
   void clock();
 
   uint8_t& ppu_access(uint16_t address);
@@ -35,8 +35,8 @@ public:
   uint8_t ppu_read(uint16_t address);
   void ppu_write(uint16_t address, const uint8_t data);
 
-  bool_t nmi;
-  bool_t frame_complete;
+  bool_t nmi = false;
+  bool_t frame_complete = false;
 
 private:
   std::array<std::array<uint8_t, 1024>, 2> name_table;
@@ -45,7 +45,7 @@ private:
 
   std::array<uint8_t, 32> palette_memory;
 
-  std::array<uint32_t, 256 * 240>& vidmem;
+  std::array<uint32_t, 340 * 260>& vidmem;
   cartridge_c& cartridge;
 
   int16_t cycle, scanline;
@@ -108,25 +108,25 @@ private:
     uint16_t value = 0x0;
   };
 
-  uint8_t fine_x;
+  uint8_t fine_x = 0x00;
 
   loopy_register temp_vram;
   loopy_register vram;
 
-  uint8_t data_buffer;
+  uint8_t data_buffer = 0x00;
 
-  bool_t load_low_byte;
+  bool_t load_low_byte = false;
 
   struct
   {
-    uint8_t bg_tile_id;
-    uint8_t bg_tile_attribute;
-    uint8_t bg_tile_lsb;
-    uint8_t bg_tile_msb;
+    uint8_t bg_tile_id = 0x00;
+    uint8_t bg_tile_attribute = 0x00;
+    uint8_t bg_tile_lsb = 0x00;
+    uint8_t bg_tile_msb = 0x00;
   } next;
 
-  uint16_t bg_lsb_pattern_shifter;
-  uint16_t bg_msb_pattern_shifter;
-  uint16_t bg_lsb_attribute_shifter;
-  uint16_t bg_msb_attribute_shifter;
+  uint16_t bg_lsb_pattern_shifter = 0x00;
+  uint16_t bg_msb_pattern_shifter = 0x00;
+  uint16_t bg_lsb_attribute_shifter = 0x00;
+  uint16_t bg_msb_attribute_shifter = 0x00;
 };

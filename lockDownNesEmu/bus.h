@@ -28,14 +28,14 @@ private:
 
   std::array<uint8_t, 2> controller_state;
 
-  std::shared_ptr<processor_c> processor_ptr;
+  processor_c* processor_ptr;
 
 public:
   bus_c(cartridge_c&, ppu_c&);
   uint8_t cpu_read(const uint16_t address);
   void cpu_write(const uint16_t address, uint8_t data);
 
-  void plug_in_processor(processor_c& cpu);
+  void plug_in_processor(processor_c* const processor_ptr);
 
   std::array<uint8_t, 2> controller;
 

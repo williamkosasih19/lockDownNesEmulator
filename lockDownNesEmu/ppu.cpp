@@ -2,10 +2,10 @@
 
 uint32_t pixel_s::to_rgba()
 {
-  return ((uint32_t(r) << 24) | (uint32_t(g) << 16) | (uint32_t(b) << 8));
+  return (uint32_t(255) << 24 | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b));
 }
 
-ppu_c::ppu_c(std::array<uint32_t, 256 * 240>& vid, cartridge_c& cart)
+ppu_c::ppu_c(std::array<uint32_t, 340 * 260>& vid, cartridge_c& cart)
     : vidmem(vid), cartridge(cart)
 {
   palette_table[0x00] = pixel_s(84, 84, 84);
@@ -145,7 +145,7 @@ void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
     }
     else
     {
-      temp_vram.value = uint16_t((data & 0x3f) << 8 | (temp_vram.value & 0xff));
+      temp_vram.value = uint16_t(data & 0x3f) << 8 | (temp_vram.value & 0xff);
       load_low_byte = true;
     }
     break;
@@ -193,16 +193,17 @@ uint8_t ppu_c::ppu_read(uint16_t address)
       else if (address >= 0xc00 && address <= 0xfff)
         data = name_table[1][address & 0x3ff];
     }
-    else if (address >= 0x3f00 && address <= 0x3fff)
-    {
-      address &= 0x1f;
-		if (address == 0x0010) address = 0x0000;
-		if (address == 0x0014) address = 0x0004;
-		if (address == 0x0018) address = 0x0008;
-		if (address == 0x001C) address = 0x000C;
-		data = palette_memory[address] & (mask.grayscale ? 0x30 : 0x3F);
-    }
   }
+  else if (address >= 0x3f00 && address <= 0x3fff)
+  {
+    address &= 0x1f;
+	if (address == 0x0010) address = 0x0000;
+	if (address == 0x0014) address = 0x0004;
+	if (address == 0x0018) address = 0x0008;
+	if (address == 0x001C) address = 0x000C;
+	data = palette_memory[address] & (mask.grayscale ? 0x30 : 0x3F);
+  }
+  
   return data;
 }
 
@@ -241,20 +242,21 @@ void ppu_c::ppu_write(uint16_t address, const uint8_t data)
       else if (address >= 0xc00 && address <= 0xfff)
         name_table[1][address & 0x3ff] = data;
     }
-    else if (address >= 0x3f00 && address <= 0x3fff)
-    {
-      address &= 0x1f;
-      if (address == 0x0010)
-        address = 0x0000;
-      if (address == 0x0014)
-        address = 0x0004;
-      if (address == 0x0018)
-        address = 0x0008;
-      if (address == 0x001C)
-        address = 0x000C;
-      palette_memory[address] = data;
-    }
   }
+  else if (address >= 0x3f00 && address <= 0x3fff)
+  {
+    address &= 0x1f;
+    if (address == 0x0010)
+      address = 0x0000;
+    if (address == 0x0014)
+      address = 0x0004;
+    if (address == 0x0018)
+      address = 0x0008;
+    if (address == 0x001C)
+      address = 0x000C;
+    palette_memory[address] = data;
+  }
+
   return;
 }
 
@@ -273,8 +275,10 @@ void ppu_c::clock()
 
   if (scanline >= -1 && scanline < 240)
   {
-    if (scanline == -1 && cycle == 1) status.vblank = 0;
-    else if (scanline == 0 && cycle == 0) cycle++;
+    if (scanline == -1 && cycle == 1)
+      status.vblank = 0;
+    else if (scanline == 0 && cycle == 0)
+      cycle++;
     else if ((cycle > 1 && cycle < 258) || (cycle > 320 && cycle < 338))
     {
       // Upadte the shift register.
@@ -286,128 +290,127 @@ void ppu_c::clock()
         bg_msb_pattern_shifter = bg_msb_pattern_shifter << 1;
       }
 
-      switch ((cycle - 1) % 8)
+      switch ((cycle) % 8)
       {
-        case 0:
-          // Load the next 8 bits worth of data to the shifters.
-          load_bg_shifter();
+      case 0:
+        // Load the next 8 bits worth of data to the shifters.
+        load_bg_shifter();
 
-          next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
-          break;
-        case 2:
-          next.bg_tile_attribute = ppu_read(
-              0x23c0 | (vram.nametable_y << 11) | (vram.nametable_x << 10) |
-              ((vram.coarse_x >> 2) << 3) | (vram.coarse_y >> 2));
-          if (vram.coarse_y & 0x2)
-            next.bg_tile_attribute = next.bg_tile_attribute >> 4;
-          if (vram.coarse_x & 0x2)
-            next.bg_tile_attribute = next.bg_tile_attribute >> 2;
-          next.bg_tile_attribute &= 0x03;
-          break;
-          case 4:
-          next.bg_tile_lsb =
-              ppu_read((control.background_pattern_table << 12) +
-                         (uint16_t(next.bg_tile_id) << 4) + vram.fine_y);
-            break;
-          case 6:
-            next.bg_tile_msb =
-                ppu_read((control.background_pattern_table << 12) +
-                           (uint16_t(next.bg_tile_id) << 4) + vram.fine_y + 8);
-            break;
-          case 7:
-            // Increment scroll x.
-            if (mask.render_background || mask.render_sprites)
-            {
-              if (vram.coarse_x == 31)
-              {
-                vram.coarse_x = 0;
-                vram.nametable_x = !vram.nametable_x;
-              }
-              else vram.coarse_x++;
-            }
-            break;
-      }
-    }
-
-    if (cycle == 256 && (mask.render_background || mask.render_sprites))
-    {
-      if (vram.fine_y == 8)
-      {
-        vram.fine_y = 0;
-        if (vram.coarse_y == 29)
+        next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
+        break;
+      case 2:
+        next.bg_tile_attribute = ppu_read(
+            0x23c0 | (vram.nametable_y << 11) | (vram.nametable_x << 10) |
+            ((vram.coarse_x >> 2) << 3) | (vram.coarse_y >> 2));
+        if (vram.coarse_y & 0x2)
+          next.bg_tile_attribute = next.bg_tile_attribute >> 4;
+        if (vram.coarse_x & 0x2)
+          next.bg_tile_attribute = next.bg_tile_attribute >> 2;
+        next.bg_tile_attribute &= 0x03;
+        break;
+      case 4:
+        next.bg_tile_lsb =
+            ppu_read((control.background_pattern_table << 12) +
+                     (uint16_t(next.bg_tile_id) << 4) + vram.fine_y);
+        break;
+      case 6:
+        next.bg_tile_msb =
+            ppu_read((control.background_pattern_table << 12) +
+                     (uint16_t(next.bg_tile_id) << 4) + vram.fine_y + 8);
+        break;
+      case 7:
+        // Increment scroll x.
+        if (mask.render_background || mask.render_sprites)
         {
-          vram.coarse_y = 0;
-          vram.nametable_y = !vram.nametable_y;
+          if (vram.coarse_x == 31)
+          {
+            vram.coarse_x = 0;
+            vram.nametable_x = !vram.nametable_x;
+          }
+          else
+            vram.coarse_x++;
         }
-        else if (vram.coarse_y == 31)
-          vram.coarse_y = 0;
-        else
-        {
-          vram.coarse_y++;
-        }
-      }
-      else
-        vram.fine_y++;
-    }
-
-    if (cycle == 257)
-    {
-      load_bg_shifter();
-      if (mask.render_background || mask.render_sprites)
-      {
-        vram.nametable_y = temp_vram.nametable_x;
-        vram.coarse_x = temp_vram.coarse_x;
-      }
-    }
-
-    if (cycle == 338 || cycle == 340)
-    {
-      next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
-    }
-
-    if (scanline == -1 && cycle >= 200 && cycle < 305)
-    {
-      if (mask.render_background || mask.render_sprites)
-      {
-        vram.fine_y = temp_vram.fine_y;
-        vram.nametable_y = temp_vram.nametable_y;
-        vram.coarse_y = temp_vram.coarse_y;
-      }
-    }
-
-    if (scanline >= 241 && scanline < 261)
-    {
-      if (scanline == 241 && cycle == 1)
-      {
-        status.vblank = 1;
-        if (control.enable_nmi) nmi=true;
-      }
-    }
-
-    uint8_t bg_pixel, bg_palette;
-
-    if (mask.render_background)
-    {
-      const uint16_t bit_selector = 0x8000 >> fine_x;
-      bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
-                  uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
-      bg_palette = (uint8_t(bool_t(bg_lsb_attribute_shifter & bit_selector)) |
-                    uint8_t(bool_t(bg_msb_attribute_shifter & bit_selector)) << 1);
-    }
-
-    vidmem[cycle - 1] = palette_table[ppu_read(0x3f00 + (bg_palette << 2) + bg_pixel) & 0x3f].to_rgba(); 
-
-    cycle++;
-    if (cycle > 340)
-    {
-      cycle = 0;
-      scanline++;
-      if (scanline > 260)
-      {
-        scanline = -1;
-        frame_complete = true;
+        break;
       }
     }
   }
 
+
+  if (cycle == 256 && (mask.render_background || mask.render_sprites))
+  {
+    if (vram.fine_y == 8)
+    {
+      vram.fine_y = 0;
+      if (vram.coarse_y == 29)
+      {
+        vram.coarse_y = 0;
+        vram.nametable_y = !vram.nametable_y;
+      }
+      else if (vram.coarse_y == 31)
+        vram.coarse_y = 0;
+      else
+      {
+        vram.coarse_y++;
+      }
+    }
+    else
+      vram.fine_y++;
+  }
+
+  if (cycle == 257)
+  {
+    load_bg_shifter();
+    if (mask.render_background || mask.render_sprites)
+    {
+      vram.nametable_y = temp_vram.nametable_x;
+      vram.coarse_x = temp_vram.coarse_x;
+    }
+  }
+
+  if (cycle == 338 || cycle == 340)
+  {
+    next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
+  }
+
+  if (scanline == -1 && cycle >= 280 && cycle < 305)
+  {
+    if (mask.render_background || mask.render_sprites)
+    {
+      vram.fine_y = temp_vram.fine_y;
+      vram.nametable_y = temp_vram.nametable_y;
+      vram.coarse_y = temp_vram.coarse_y;
+    }
+  }
+
+  if (scanline == 241 && cycle == 1)
+  {
+    status.vblank = 1;
+    if (control.enable_nmi) nmi=true;
+  }
+  
+  uint8_t bg_pixel = 0x00, bg_palette = 0x00;
+
+  if (mask.render_background)
+  {
+    const uint16_t bit_selector = 0x8000 >> fine_x;
+    bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
+                uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
+    bg_palette = (uint8_t(bool_t(bg_lsb_attribute_shifter & bit_selector)) |
+                  uint8_t(bool_t(bg_msb_attribute_shifter & bit_selector)) << 1);
+  }
+
+  if (scanline >= 0)
+    vidmem[cycle + scanline * 340] = palette_table[ppu_read(0x3f00 + (bg_palette << 2) + bg_pixel) & 0x3f].to_rgba(); 
+
+  cycle++;
+  if (cycle >= 340)
+  {
+    cycle = 0;
+    scanline++;
+    if (scanline >= 260)
+    {
+      scanline = -1;
+      frame_complete = true;
+    }
+  }
 }

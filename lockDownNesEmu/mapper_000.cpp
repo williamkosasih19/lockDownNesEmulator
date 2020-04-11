@@ -56,8 +56,11 @@ bool_t mapper_000_c::map_ppu_write(const uint16_t address,
 {
   if (address >= 0x00 && address <= 0x1fff)
   {
-    mapped_address = address;
-    return true;
+    if (character_banks == 0)
+    {
+      mapped_address = address;
+      return true;
+    }
   }
   return false;
 }

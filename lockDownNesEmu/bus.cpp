@@ -54,7 +54,7 @@ void bus_c::cpu_write(const uint16_t address, const uint8_t data)
   }
   else if (address >= 0x00 && address <= 0x1fff)
   {
-    ram[address & 0x07ff] = data;
+    ram[address & 0x7ff] = data;
   }
   else if (address >= 0x2000 && address <= 0x3fff)
   {
@@ -69,9 +69,15 @@ void bus_c::cpu_write(const uint16_t address, const uint8_t data)
 void bus_c::clock()
 {
   if (cycle == 0)
+  {
     processor_ptr->execute();
+    if (ppu.nmi)
+    {
+      processor_ptr->nmi();
+      ppu.nmi = false;
+    }
+      
+  }
   ppu.clock();
-  if (ppu.nmi)
-    processor_ptr->nmi();
   cycle = (cycle + 1) % 3;
 }

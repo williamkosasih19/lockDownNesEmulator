@@ -54,7 +54,7 @@ void cartridge_c::load(const string& file_name)
 
       character_banks = header.chr_rom_chunks;
       character_memory.resize(uint32_t(character_banks) * 8192);
-      file.read((byte_t*)character_memory.data(), sizeof(character_memory));
+      file.read((byte_t*)character_memory.data(), character_memory.size());
     }
     image_valid = true;
     file.close();
@@ -88,7 +88,7 @@ bool_t cartridge_c::cpu_write(const uint16_t address, uint8_t data)
   uint32_t mapped_address;
   if (mapper_ptr->map_cpu_write(address, mapped_address))
   {
-    program_memory[address] = data;
+    program_memory[mapped_address] = data;
     return true;
   }
   return false;
@@ -98,7 +98,7 @@ bool_t cartridge_c::ppu_read(const uint16_t address, uint8_t& data) {
   uint32_t mapped_address;
   if (mapper_ptr->map_ppu_read(address, mapped_address))
   {
-    data = character_memory[address];
+    data = character_memory[mapped_address];
     return true;
   }
   return false;

@@ -69,6 +69,30 @@ int main()
 
   uint64_t cycle = 0;
 
+  // nesTestDebug
+  cartridge.load("C:\\Users\\willi\\Documents\\nestest.nes");
+  processor.reset();
+
+  while (true)
+  {
+    if (cycle >= 500)
+    {
+      cycle = 0;
+      SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));
+
+      SDL_RenderClear(renderer);
+      SDL_RenderCopy(renderer, texture, NULL, NULL);
+      SDL_RenderPresent(renderer);
+    }
+
+    const uint32_t first_tick = SDL_GetTicks();
+    bus.clock();
+    const uint32_t second_tick = SDL_GetTicks();
+    cycle++;
+    // SDL_Delay(5);
+  }
+
+
   while (true)
   {
     SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));

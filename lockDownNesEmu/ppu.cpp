@@ -1,5 +1,7 @@
 #include "ppu.h"
 
+#include <intrin.h>
+
 uint32_t pixel_s::to_rgba()
 {
   return (uint32_t(255) << 24 | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b));
@@ -78,6 +80,22 @@ ppu_c::ppu_c(std::array<uint32_t, 340 * 260>& vid, cartridge_c& cart)
 
   cycle = 0;
   scanline = 0;
+
+  fine_x = 0;
+  load_low_byte = false;
+  data_buffer = 0;
+  next.bg_tile_id = 0;
+  next.bg_tile_attribute = 0;
+  next.bg_tile_lsb = 0;
+  next.bg_tile_msb = 0;
+  bg_lsb_attribute_shifter = 0;
+  bg_msb_attribute_shifter = 0;
+  bg_lsb_pattern_shifter = 0;
+  bg_msb_pattern_shifter = 0;
+  status.value = 0;
+  control.value = 0;
+  vram.value = 0;
+  temp_vram.value = 0;
 }
 
 uint8_t ppu_c::cpu_read(const uint16_t address)
@@ -171,6 +189,8 @@ uint8_t ppu_c::ppu_read(uint16_t address)
   else if (address >= 0x2000 && address <= 0x3eff)
   {
     address &= 0x0fff;
+    if (vram.coarse_x == 2 && vram.coarse_y == 4 && vram.nametable_x == 1 && address==1154)
+      __debugbreak();
     if (cartridge.mirror == vertical_cartridge_mirror)
     {
       if (address >= 0x00 && address <= 0x3ff)
@@ -193,6 +213,8 @@ uint8_t ppu_c::ppu_read(uint16_t address)
       else if (address >= 0xc00 && address <= 0xfff)
         data = name_table[1][address & 0x3ff];
     }
+    if (data != 0 && data != 32 && data != 204)
+      __debugbreak();
   }
   else if (address >= 0x3f00 && address <= 0x3fff)
   {
@@ -262,6 +284,9 @@ void ppu_c::ppu_write(uint16_t address, const uint8_t data)
 
 void ppu_c::clock()
 {
+
+  if (next.bg_tile_id != 0 && next.bg_tile_id != 204 && next.bg_tile_id != 32)
+    __debugbreak();
   auto load_bg_shifter = [&]() {
     bg_lsb_pattern_shifter =
         (bg_lsb_pattern_shifter & 0xff00) | next.bg_tile_lsb;
@@ -271,15 +296,16 @@ void ppu_c::clock()
                                ((next.bg_tile_attribute & 0x1) ? 0xFF : 0x00);
     bg_lsb_attribute_shifter = (bg_lsb_attribute_shifter & 0xff00) |
                                ((next.bg_tile_attribute & 0x2) ? 0xFF : 0x00);
+    
   };
 
   if (scanline >= -1 && scanline < 240)
   {
     if (scanline == -1 && cycle == 1)
       status.vblank = 0;
-    else if (scanline == 0 && cycle == 0)
+    if (scanline == 0 && cycle == 0)
       cycle++;
-    else if ((cycle > 1 && cycle < 258) || (cycle > 320 && cycle < 338))
+    if ((cycle > 1 && cycle < 258) || (cycle > 320 && cycle < 338))
     {
       // Upadte the shift register.
       if (mask.render_background)
@@ -293,6 +319,8 @@ void ppu_c::clock()
       switch ((cycle) % 8)
       {
       case 0:
+        //if (vram.coarse_x == 2 && vram.coarse_y == 4 && vram.nametable_x == 1 && vram.fine_y == 0)
+        //  __debugbreak();
         // Load the next 8 bits worth of data to the shifters.
         load_bg_shifter();
 
@@ -301,7 +329,7 @@ void ppu_c::clock()
       case 2:
         next.bg_tile_attribute = ppu_read(
             0x23c0 | (vram.nametable_y << 11) | (vram.nametable_x << 10) |
-            ((vram.coarse_x >> 2) << 3) | (vram.coarse_y >> 2));
+            ((vram.coarse_y >> 2) << 3) | (vram.coarse_x >> 2));
         if (vram.coarse_y & 0x2)
           next.bg_tile_attribute = next.bg_tile_attribute >> 4;
         if (vram.coarse_x & 0x2)
@@ -312,11 +340,15 @@ void ppu_c::clock()
         next.bg_tile_lsb =
             ppu_read((control.background_pattern_table << 12) +
                      (uint16_t(next.bg_tile_id) << 4) + vram.fine_y);
+        if (next.bg_tile_lsb != 0)
+          __debugbreak();
         break;
       case 6:
         next.bg_tile_msb =
             ppu_read((control.background_pattern_table << 12) +
                      (uint16_t(next.bg_tile_id) << 4) + vram.fine_y + 8);
+        if (next.bg_tile_msb != 0)
+          __debugbreak();
         break;
       case 7:
         // Increment scroll x.
@@ -325,7 +357,7 @@ void ppu_c::clock()
           if (vram.coarse_x == 31)
           {
             vram.coarse_x = 0;
-            vram.nametable_x = !vram.nametable_x;
+            vram.nametable_x = ~vram.nametable_x;
           }
           else
             vram.coarse_x++;
@@ -333,54 +365,55 @@ void ppu_c::clock()
         break;
       }
     }
-  }
 
-
-  if (cycle == 256 && (mask.render_background || mask.render_sprites))
-  {
-    if (vram.fine_y == 8)
+    if (cycle == 256 && (mask.render_background || mask.render_sprites))
     {
-      vram.fine_y = 0;
-      if (vram.coarse_y == 29)
+      if (vram.fine_y == 8)
       {
-        vram.coarse_y = 0;
-        vram.nametable_y = !vram.nametable_y;
+        vram.fine_y = 0;
+        if (vram.coarse_y == 29)
+        {
+          vram.coarse_y = 0;
+          vram.nametable_y = !vram.nametable_y;
+        }
+        else if (vram.coarse_y == 31)
+          vram.coarse_y = 0;
+        else
+        {
+          vram.coarse_y++;
+        }
       }
-      else if (vram.coarse_y == 31)
-        vram.coarse_y = 0;
       else
+        vram.fine_y++;
+    }
+
+    if (cycle == 257)
+    {
+      load_bg_shifter();
+      if (mask.render_background || mask.render_sprites)
       {
-        vram.coarse_y++;
+        vram.nametable_y = temp_vram.nametable_x;
+        vram.coarse_x = temp_vram.coarse_x;
       }
     }
-    else
-      vram.fine_y++;
-  }
 
-  if (cycle == 257)
-  {
-    load_bg_shifter();
-    if (mask.render_background || mask.render_sprites)
+    if (cycle == 338 || cycle == 340)
     {
-      vram.nametable_y = temp_vram.nametable_x;
-      vram.coarse_x = temp_vram.coarse_x;
+      next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
     }
-  }
 
-  if (cycle == 338 || cycle == 340)
-  {
-    next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
-  }
-
-  if (scanline == -1 && cycle >= 280 && cycle < 305)
-  {
-    if (mask.render_background || mask.render_sprites)
+    if (scanline == -1 && cycle >= 280 && cycle < 305)
     {
-      vram.fine_y = temp_vram.fine_y;
-      vram.nametable_y = temp_vram.nametable_y;
-      vram.coarse_y = temp_vram.coarse_y;
+      if (mask.render_background || mask.render_sprites)
+      {
+        vram.fine_y = temp_vram.fine_y;
+        vram.nametable_y = temp_vram.nametable_y;
+        vram.coarse_y = temp_vram.coarse_y;
+      }
     }
+
   }
+
 
   if (scanline == 241 && cycle == 1)
   {

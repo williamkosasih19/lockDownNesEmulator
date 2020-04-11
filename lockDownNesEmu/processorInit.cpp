@@ -329,7 +329,7 @@ void processor_c::init()
   opcode_string_map[tsy_op] = "TSY";
   opcode_string_map[tya_op] = "TYA";
   opcode_string_map[ror_op] = "ROR";
-  opcode_string_map[ill_op] = "ILL";
+  opcode_string_map[ill_op] = "???";
   opcode_string_map[inx_op] = "INX";
   opcode_string_map[txa_op] = "TXA";
   opcode_string_map[txs_op] = "TXS";

@@ -15,6 +15,8 @@
 #include "types.h"
 #include "enum.h"
 
+#include <fstream>
+
 class bus_c;
 
 class processor_c{
@@ -49,4 +51,6 @@ private:
 
   void irq();
   void nmi();
+
+  std::ofstream logOut;
 };

@@ -49,7 +49,7 @@ int main()
   SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
                                            SDL_TEXTUREACCESS_STATIC, 256, 240);
 
-  array<unsigned int, 340 * 260> vidmem;
+  array<unsigned int, 341 * 261> vidmem;
 
   for (int i = 0; i < vidmem.size(); i++)
   {

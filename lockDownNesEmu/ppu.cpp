@@ -7,7 +7,7 @@ uint32_t pixel_s::to_rgba()
   return (uint32_t(255) << 24 | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b));
 }
 
-ppu_c::ppu_c(std::array<uint32_t, 340 * 260>& vid, cartridge_c& cart)
+ppu_c::ppu_c(std::array<uint32_t, 341 * 261>& vid, cartridge_c& cart)
     : vidmem(vid), cartridge(cart)
 {
   palette_table[0x00] = pixel_s(84, 84, 84);
@@ -189,8 +189,6 @@ uint8_t ppu_c::ppu_read(uint16_t address)
   else if (address >= 0x2000 && address <= 0x3eff)
   {
     address &= 0x0fff;
-    if (vram.coarse_x == 2 && vram.coarse_y == 4 && vram.nametable_x == 1 && address==1154)
-      __debugbreak();
     if (cartridge.mirror == vertical_cartridge_mirror)
     {
       if (address >= 0x00 && address <= 0x3ff)
@@ -213,8 +211,7 @@ uint8_t ppu_c::ppu_read(uint16_t address)
       else if (address >= 0xc00 && address <= 0xfff)
         data = name_table[1][address & 0x3ff];
     }
-    if (data != 0 && data != 32 && data != 204)
-      __debugbreak();
+
   }
   else if (address >= 0x3f00 && address <= 0x3fff)
   {
@@ -284,9 +281,6 @@ void ppu_c::ppu_write(uint16_t address, const uint8_t data)
 
 void ppu_c::clock()
 {
-
-  if (next.bg_tile_id != 0 && next.bg_tile_id != 204 && next.bg_tile_id != 32)
-    __debugbreak();
   auto load_bg_shifter = [&]() {
     bg_lsb_pattern_shifter =
         (bg_lsb_pattern_shifter & 0xff00) | next.bg_tile_lsb;
@@ -316,7 +310,7 @@ void ppu_c::clock()
         bg_msb_pattern_shifter = bg_msb_pattern_shifter << 1;
       }
 
-      switch ((cycle) % 8)
+      switch ((cycle - 1) % 8)
       {
       case 0:
         //if (vram.coarse_x == 2 && vram.coarse_y == 4 && vram.nametable_x == 1 && vram.fine_y == 0)
@@ -340,15 +334,11 @@ void ppu_c::clock()
         next.bg_tile_lsb =
             ppu_read((control.background_pattern_table << 12) +
                      (uint16_t(next.bg_tile_id) << 4) + vram.fine_y);
-        if (next.bg_tile_lsb != 0)
-          __debugbreak();
         break;
       case 6:
         next.bg_tile_msb =
             ppu_read((control.background_pattern_table << 12) +
                      (uint16_t(next.bg_tile_id) << 4) + vram.fine_y + 8);
-        if (next.bg_tile_msb != 0)
-          __debugbreak();
         break;
       case 7:
         // Increment scroll x.
@@ -433,14 +423,14 @@ void ppu_c::clock()
   }
 
   if (scanline >= 0)
-    vidmem[cycle + scanline * 340] = palette_table[ppu_read(0x3f00 + (bg_palette << 2) + bg_pixel) & 0x3f].to_rgba(); 
+    vidmem[cycle + scanline * 341] = palette_table[ppu_read(0x3f00 + (bg_palette << 2) + bg_pixel) & 0x3f].to_rgba(); 
 
   cycle++;
-  if (cycle >= 340)
+  if (cycle >= 341)
   {
     cycle = 0;
     scanline++;
-    if (scanline >= 260)
+    if (scanline >= 261)
     {
       scanline = -1;
       frame_complete = true;

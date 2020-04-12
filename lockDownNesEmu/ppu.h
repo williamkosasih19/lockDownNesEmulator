@@ -24,7 +24,7 @@ struct pixel_s
 class ppu_c
 {
 public:
-  ppu_c(std::array<uint32_t, 340 * 260>&, cartridge_c&);
+  ppu_c(std::array<uint32_t, 341 * 261>&, cartridge_c&);
   void clock();
 
   uint8_t& ppu_access(uint16_t address);
@@ -45,7 +45,7 @@ private:
 
   std::array<uint8_t, 32> palette_memory;
 
-  std::array<uint32_t, 340 * 260>& vidmem;
+  std::array<uint32_t, 341 * 261>& vidmem;
   cartridge_c& cartridge;
 
   int16_t cycle, scanline;

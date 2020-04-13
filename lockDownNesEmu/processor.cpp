@@ -1,22 +1,22 @@
 #include "processor.h"
-#include "types.h"
 #include "bus.h"
 #include "enum.h"
+#include "types.h"
 
 #include "outputImpl.h"
 
 #include <array>
-#include <iostream>
 #include <bitset>
+#include <iostream>
 
 using namespace std;
 
-processor_c::processor_c(bus_c& mem_ref) : bus(mem_ref) 
+processor_c::processor_c(bus_c& mem_ref) : bus(mem_ref)
 {
-  logOut.open("C:\\Users\\willi\\Documents\\lockDownCpu.log");
+  // logOut.open("C:\\Users\\willi\\Documents\\lockDownCpu.log");
 }
 
-void processor_c::reset() 
+void processor_c::reset()
 {
   // Reset registers.
   a = 0;
@@ -37,7 +37,7 @@ void processor_c::reset()
   return;
 }
 
-void processor_c::set_flag(const cpu_flags_e cpu_flag, const bool_t value) 
+void processor_c::set_flag(const cpu_flags_e cpu_flag, const bool_t value)
 {
   if (value)
     status |= cpu_flag;
@@ -52,7 +52,8 @@ bool_t processor_c::get_flag(const cpu_flags_e cpu_flag)
 
 void processor_c::irq()
 {
-  if (get_flag(disable_interrupt_cpu_fl)) return;
+  if (get_flag(disable_interrupt_cpu_fl))
+    return;
   // Push the upper half of the pc to stack.
   bus.cpu_write(0x100 + sp - 1, pc >> 8);
   bus.cpu_write(0x100 + sp - 2, pc & 0xff);
@@ -142,15 +143,15 @@ void processor_c::execute()
     case rel_addr:
       addr_relative = bus.cpu_read(pc);
       // Sign extend to 16 bits if the 8-bit offset is negative.
-      if (addr_relative & 0x80) addr_relative |= 0xFF00;
+      if (addr_relative & 0x80)
+        addr_relative |= 0xFF00;
       pc++;
       break;
     case abs_addr:
       addr = (bus.cpu_read(pc + 1) << 8) | bus.cpu_read(pc);
       pc += 2;
       break;
-    case abx_addr: 
-    {
+    case abx_addr: {
       const uint16_t lower_half = bus.cpu_read(pc);
       const uint16_t upper_half = bus.cpu_read(pc + 1);
       addr = ((upper_half << 8) | lower_half) + x;
@@ -161,8 +162,7 @@ void processor_c::execute()
       pc += 2;
       break;
     }
-    case aby_addr: 
-    {
+    case aby_addr: {
       const uint16_t lower_half = bus.cpu_read(pc);
       const uint16_t upper_half = bus.cpu_read(pc + 1);
 
@@ -174,8 +174,7 @@ void processor_c::execute()
       pc += 2;
       break;
     }
-    case ind_addr: 
-    {
+    case ind_addr: {
       const uint16_t lower_half = bus.cpu_read(pc);
       const uint16_t upper_half = bus.cpu_read(pc + 1);
       const uint16_t ptr = (upper_half << 8) | lower_half;
@@ -192,8 +191,7 @@ void processor_c::execute()
       pc += 2;
       break;
     }
-    case izx_addr: 
-    {
+    case izx_addr: {
       const uint16_t ptr = bus.cpu_read(pc);
       addr = (bus.cpu_read((ptr + uint16_t(x) + 1) & 0xff) << 8) |
              bus.cpu_read((ptr + uint16_t(x)) & 0xff);
@@ -201,8 +199,7 @@ void processor_c::execute()
       break;
     }
 
-    case izy_addr: 
-    {
+    case izy_addr: {
       const uint16_t ptr = bus.cpu_read(pc);
       uint16_t lower_half = bus.cpu_read(ptr & 0xff);
       uint16_t upper_half = bus.cpu_read((ptr + 1) & 0xff);
@@ -212,16 +209,19 @@ void processor_c::execute()
       pc++;
       break;
     }
-
     }
+
+    const auto fetch_data = [&]() {
+      if (addr_mode != imp_addr)
+        data = bus.cpu_read(addr);
+    };
 
     switch (opcode_e(op))
     {
-    case adc_op: 
-    {
-      data = bus.cpu_read(addr);
-      uint16_t temp = uint16_t(a) + uint16_t(data) +
-                      uint16_t(get_flag(carry_cpu_fl));
+    case adc_op: {
+      fetch_data();
+      uint16_t temp =
+          uint16_t(a) + uint16_t(data) + uint16_t(get_flag(carry_cpu_fl));
       set_flag(carry_cpu_fl, temp > 255);
       set_flag(zero_cpu_fl, (temp & 0xff) == 0);
       // clang-format off
@@ -235,11 +235,10 @@ void processor_c::execute()
       break;
     }
     // A = A - M - (1 - C)
-    case sbc_op: 
-    {
-      data = bus.cpu_read(addr);
+    case sbc_op: {
+      fetch_data();
 
-      // Flip the lower half => (lh - 1) 
+      // Flip the lower half => (lh - 1)
       const uint16_t flipped = (uint16_t(data) ^ 0xff);
 
       uint16_t temp =
@@ -257,16 +256,15 @@ void processor_c::execute()
       break;
     }
     case and_op:
-      data = bus.cpu_read(addr);
+      fetch_data();
       a = a & data;
       set_flag(zero_cpu_fl, a == 0);
       set_flag(negative_cpu_fl, a & 0x80);
       op_additional_cycle = true;
       break;
-    case asl_op: 
-    {
+    case asl_op: {
       if (addr_mode != imp_addr)
-        data = bus.cpu_read(addr);
+        fetch_data();
       uint16_t temp = uint16_t(data) << 1;
       set_flag(carry_cpu_fl, temp & 0xff00);
       set_flag(zero_cpu_fl, !(temp & 0xff));
@@ -277,8 +275,7 @@ void processor_c::execute()
         bus.cpu_write(addr, temp & 0xff);
       break;
     }
-    case bcc_op:
-    {
+    case bcc_op: {
       if (!get_flag(carry_cpu_fl))
       {
         cycles++;
@@ -326,10 +323,9 @@ void processor_c::execute()
         pc = addr;
       }
       break;
-    case bit_op:
-    {
-      data = bus.cpu_read(addr);
-      
+    case bit_op: {
+      fetch_data();
+
       const uint16_t temp = a & data;
       set_flag(zero_cpu_fl, !(temp & 0xff));
       set_flag(negative_cpu_fl, data & cpu_flags_e::negative_cpu_fl);
@@ -362,9 +358,8 @@ void processor_c::execute()
         pc = addr;
       }
       break;
-    case rol_op:
-    {
-      data = bus.cpu_read(addr);
+    case rol_op: {
+      fetch_data();
       const uint16_t temp =
           uint16_t((data << 1) | uint16_t(get_flag(carry_cpu_fl)));
       set_flag(carry_cpu_fl, temp & 0xff00);
@@ -377,9 +372,8 @@ void processor_c::execute()
       break;
     }
     case ror_op: {
-      data = bus.cpu_read(addr);
-      const uint16_t temp =
-          uint16_t(get_flag(carry_cpu_fl) << 7 | (data >> 1));
+      fetch_data();
+      const uint16_t temp = uint16_t(get_flag(carry_cpu_fl) << 7 | (data >> 1));
       set_flag(carry_cpu_fl, data & 0x1);
       set_flag(zero_cpu_fl, !(temp & 0xff));
       set_flag(negative_cpu_fl, temp & 0x80);
@@ -405,21 +399,21 @@ void processor_c::execute()
       sp += 2;
       break;
     case ldx_op:
-      data = bus.cpu_read(addr);
+      fetch_data();
       x = data;
       set_flag(zero_cpu_fl, !x);
       set_flag(negative_cpu_fl, x & 0x80);
       op_additional_cycle = true;
       break;
     case lda_op:
-      data = bus.cpu_read(addr);
+      fetch_data();
       a = data;
       set_flag(zero_cpu_fl, !a);
       set_flag(negative_cpu_fl, a & 0x80);
       op_additional_cycle = true;
       break;
     case ldy_op:
-      data = bus.cpu_read(addr);
+      fetch_data();
       y = data;
       set_flag(zero_cpu_fl, !y);
       set_flag(negative_cpu_fl, y & 0x80);
@@ -483,9 +477,8 @@ void processor_c::execute()
     case sty_op:
       bus.cpu_write(addr, y);
       break;
-    case dec_op:
-    {
-      data = bus.cpu_read(addr);
+    case dec_op: {
+      fetch_data();
       const uint16_t temp = data - 1;
       bus.cpu_write(addr, temp & 0xff);
       set_flag(zero_cpu_fl, !(temp & 0xff));
@@ -502,9 +495,8 @@ void processor_c::execute()
       set_flag(zero_cpu_fl, !y);
       set_flag(negative_cpu_fl, y & 0x80);
       break;
-    case lsr_op: 
-    {
-      data = bus.cpu_read(addr);
+    case lsr_op: {
+      fetch_data();
       set_flag(carry_cpu_fl, data & 0x1);
 
       const uint16_t temp = data >> 1;
@@ -531,140 +523,140 @@ void processor_c::execute()
     case jmp_op:
       pc = addr;
       break;
-      case inc_op:
+    case inc_op: {
+      fetch_data();
+      const uint16_t temp = data + 1;
+      bus.cpu_write(addr, temp & 0xff);
+      set_flag(zero_cpu_fl, !(temp & 0xff));
+      set_flag(negative_cpu_fl, temp & 0x80);
+      break;
+    }
+    case inx_op:
+      x++;
+      set_flag(zero_cpu_fl, !x);
+      set_flag(negative_cpu_fl, x & 0x80);
+      break;
+    case iny_op:
+      y++;
+      set_flag(zero_cpu_fl, !y);
+      set_flag(negative_cpu_fl, y & 0x80);
+      break;
+    case cmp_op: {
+      fetch_data();
+      const uint16_t temp = uint16_t(a) - uint16_t(data);
+      set_flag(carry_cpu_fl, a >= data);
+      set_flag(zero_cpu_fl, (temp & 0xff) == 0);
+      set_flag(negative_cpu_fl, temp & 0x80);
+      op_additional_cycle = true;
+      break;
+    }
+    case cpx_op: {
+      fetch_data();
+      const uint16_t temp = uint16_t(x) - uint16_t(data);
+      set_flag(carry_cpu_fl, x >= data);
+      set_flag(zero_cpu_fl, !(temp & 0xff));
+      set_flag(negative_cpu_fl, temp & 0x80);
+      break;
+    }
+    case cpy_op: {
+      fetch_data();
+      const uint16_t temp = uint16_t(y) - uint16_t(data);
+      set_flag(carry_cpu_fl, y >= data);
+      set_flag(zero_cpu_fl, !(temp & 0xff));
+      set_flag(negative_cpu_fl, temp & 0x80);
+      break;
+    }
+    case pha_op:
+      bus.cpu_write(0x100 + sp, a);
+      sp--;
+      break;
+    case php_op:
+      bus.cpu_write(0x100 + sp, status | cpu_flags_e::break_cpu_fl |
+                                    cpu_flags_e::unused_cpu_fl);
+      set_flag(break_cpu_fl, false);
+      set_flag(unused_cpu_fl, false);
+      sp--;
+      break;
+    case pla_op:
+      sp++;
+      a = bus.cpu_read(0x100 + sp);
+      set_flag(zero_cpu_fl, !a);
+      set_flag(negative_cpu_fl, a & 0x80);
+      break;
+    case plp_op:
+      sp++;
+      status = bus.cpu_read(0x100 + sp);
+      set_flag(unused_cpu_fl, true);
+      break;
+    case eor_op:
+      fetch_data();
+      a = a ^ data;
+      set_flag(zero_cpu_fl, !a);
+      set_flag(negative_cpu_fl, a & 0x80);
+      op_additional_cycle = true;
+      break;
+    case bvc_op:
+      if (!get_flag(overflow_cpu_fl))
       {
-        data = bus.cpu_read(addr);
-        const uint16_t temp = data + 1;
-        bus.cpu_write(addr, temp & 0xff);
-        set_flag(zero_cpu_fl, !(temp & 0xff));
-        set_flag(negative_cpu_fl, temp & 0x80);
-        break;
-      }
-      case inx_op:
-        x++;
-        set_flag(zero_cpu_fl, !x);
-        set_flag(negative_cpu_fl, x & 0x80);
-        break;
-      case iny_op:
-        y++;
-        set_flag(zero_cpu_fl, !y);
-        set_flag(negative_cpu_fl, y & 0x80);
-        break;
-      case cmp_op:
-      {
-        data = bus.cpu_read(addr);
-        const uint16_t temp = uint16_t(a) - uint16_t(data);
-        set_flag(carry_cpu_fl, a >= data);
-        set_flag(zero_cpu_fl, (temp & 0xff) == 0);
-        set_flag(negative_cpu_fl, temp & 0x80);
-        op_additional_cycle = true;
-        break;
-      }
-      case cpx_op:
-      {
-        data = bus.cpu_read(addr);
-        const uint16_t temp = uint16_t(x) - uint16_t(data);
-        set_flag(carry_cpu_fl, x >= data);
-        set_flag(zero_cpu_fl, !(temp & 0xff));
-        set_flag(negative_cpu_fl, temp & 0x80);
-        break;
-      }
-      case cpy_op: {
-        data = bus.cpu_read(addr);
-        const uint16_t temp = uint16_t(y) - uint16_t(data);
-        set_flag(carry_cpu_fl, y >= data);
-        set_flag(zero_cpu_fl, !(temp & 0xff));
-        set_flag(negative_cpu_fl, temp & 0x80);
-        break;
-      }
-      case pha_op:
-        bus.cpu_write(0x100 + sp, a);
-        sp--;
-        break;
-      case php_op:
-        bus.cpu_write(0x100 + sp, status | cpu_flags_e::break_cpu_fl |
-                                      cpu_flags_e::unused_cpu_fl);
-        set_flag(break_cpu_fl, false);
-        set_flag(unused_cpu_fl, false);
-        sp--;
-        break;
-      case pla_op:
-        sp++;
-        a = bus.cpu_read(0x100 + sp);
-        set_flag(zero_cpu_fl, !a);
-        set_flag(negative_cpu_fl, a & 0x80);
-        break;
-      case plp_op:
-        sp++;
-        status = bus.cpu_read(0x100 + sp);
-        set_flag(unused_cpu_fl, true);
-        break;
-      case eor_op:
-        data = bus.cpu_read(addr);
-        a = a ^ data;
-        set_flag(zero_cpu_fl, !a);
-        set_flag(negative_cpu_fl, a & 0x80);
-        op_additional_cycle = true;
-        break;
-      case bvc_op:
-        if (!get_flag(overflow_cpu_fl))
-        {
+        cycles++;
+        addr = pc + addr_relative;
+
+        if ((addr & 0xff00) != (pc & 0xff00))
           cycles++;
-          addr = pc + addr_relative;
+        pc = addr;
+      }
+      break;
+    case bvs_op:
+      if (get_flag(overflow_cpu_fl))
+      {
+        cycles++;
+        addr = pc + addr_relative;
 
-          if ((addr & 0xff00) != (pc & 0xff00)) cycles++;
-          pc = addr;
-        }
-        break;
-      case bvs_op:
-        if (get_flag(overflow_cpu_fl))
-        {
+        if ((addr & 0xff00) != (pc & 0xff00))
           cycles++;
-          addr = pc + addr_relative;
+        pc = addr;
+      }
+      break;
+    case ora_op:
+      fetch_data();
+      a |= data;
+      set_flag(zero_cpu_fl, !a);
+      set_flag(negative_cpu_fl, a & 0x80);
+      op_additional_cycle = true;
+      break;
+    case brk_op:
+      pc++;
 
-          if ((addr & 0xff00) != (pc & 0xff00))
-            cycles++;
-          pc = addr;
-        }
-        break;
-      case ora_op:
-        data = bus.cpu_read(addr);
-        a |= data;
-        set_flag(zero_cpu_fl, !a);
-        set_flag(negative_cpu_fl, a & 0x80);
+      set_flag(disable_interrupt_cpu_fl, true);
+      bus.cpu_write(0x0100 + sp, (pc >> 8) & 0x00FF);
+      sp--;
+      bus.cpu_write(0x0100 + sp, pc & 0x00FF);
+      sp--;
+
+      set_flag(break_cpu_fl, true);
+      bus.cpu_write(0x0100 + sp, status);
+      sp--;
+      set_flag(break_cpu_fl, false);
+
+      pc = uint16_t(bus.cpu_read(0xFFFE)) |
+           (uint16_t(bus.cpu_read(0xFFFF)) << 8);
+      break;
+    case nop_op:
+      switch (op)
+      {
+      case 0x1c:
+      case 0x3c:
+      case 0x5c:
+      case 0x7c:
+      case 0xdc:
+      case 0xfc:
         op_additional_cycle = true;
         break;
-      case brk_op:
-        pc++;
-
-        set_flag(disable_interrupt_cpu_fl, true);
-        bus.cpu_write(0x0100 + sp, (pc >> 8) & 0x00FF);
-        sp--;
-        bus.cpu_write(0x0100 + sp, pc & 0x00FF);
-        sp--;
-
-        set_flag(break_cpu_fl, true);
-        bus.cpu_write(0x0100 + sp, status);
-        sp--;
-        set_flag(break_cpu_fl, false);
-
-        pc = uint16_t(bus.cpu_read(0xFFFE)) | (uint16_t(bus.cpu_read(0xFFFF)) << 8);
+      default:
+        false;
         break;
-      case nop_op:
-        switch (op)
-        {
-        case 0x1c:
-        case 0x3c:
-        case 0x5c:
-        case 0x7c:
-        case 0xdc:
-        case 0xfc:
-          op_additional_cycle = true;
-        break;
-        default:false;
-          break;
-        }
-        break;
+      }
+      break;
     case ill_op:
 
       break;
@@ -687,23 +679,21 @@ void processor_c::execute()
              addr, data, addr_string_map[addr_mode_e(addr_mode)].c_str());
     }
 
-    //char buffer[1000];
-    //sprintf_s(buffer,
-    //          "pc:%04x a:%02x x:%02x y:%02x sp:%04x addr:%04x addr_rel:%02x "
-    //          "data:%02x status:%02x op:%s addr:%s\n",
-    //          pc, a, x, y, sp, addr, addr_relative, data, status,
-    //          opcode_string_map[opcode_e(op)].c_str(),
-    //          addr_string_map[addr_mode_e(addr_mode)].c_str());
-    //logOut << buffer;
-
+    /* char buffer[1000];
+     sprintf_s(buffer,
+               "pc:%04x a:%02x x:%02x y:%02x sp:%04x addr:%04x addr_rel:%02x "
+               "data:%02x status:%02x op:%s addr:%s\n",
+               pc, a, x, y, sp, addr, addr_relative, data, status,
+               opcode_string_map[opcode_e(op)].c_str(),
+               addr_string_map[addr_mode_e(addr_mode)].c_str());
+     logOut << buffer;*/
   }
   else
     cycles--;
-
 }
 
-void processor_c::query() 
-{ 
+void processor_c::query()
+{
   cout << "########## Registers ##########" << endl;
   printf("a : %u\n", a);
   printf("x : %u\n", x);

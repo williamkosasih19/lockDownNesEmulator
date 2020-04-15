@@ -42,7 +42,7 @@ uint8_t bus_c::cpu_read(const uint16_t address)
   {
     // Read the rightmost statte of the controller then shift left.
     data = (controller_state[address & 0b1] & 0x80) > 0;
-    controller_state[address & 0b1] == controller_state[address & 0b1] << 1;
+    controller_state[address & 0b1] = controller_state[address & 0b1] << 1;
   }
   return data;
 }

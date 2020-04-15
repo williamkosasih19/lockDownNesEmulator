@@ -49,7 +49,7 @@ int main()
   SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
                                            SDL_TEXTUREACCESS_STATIC, 256, 240);
 
-  array<unsigned int, 341 * 261> vidmem;
+  array<unsigned int, 256 * 240> vidmem;
 
   for (int i = 0; i < vidmem.size(); i++)
   {
@@ -70,7 +70,7 @@ int main()
   uint64_t cycle = 0;
 
   // nesTestDebug
-  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\nestest.nes");
+  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\bf.nes");
   processor.reset();
 
   while (true)
@@ -90,6 +90,12 @@ int main()
           case SDLK_UP:
             bus.controller[0] |= 0x08;
             break;
+          case SDLK_LEFT:
+            bus.controller[0] |= 0x02;
+            break;
+          case SDLK_RIGHT:
+            bus.controller[0] |= 0x01;
+            break;
           case SDLK_x:
             bus.controller[0] |= 0x80;
             break;
@@ -106,7 +112,33 @@ int main()
           break;
 
         case SDL_KEYUP:
-          bus.controller[0] = 0;
+          switch (event.key.keysym.sym)
+          {
+          case SDLK_DOWN:
+            bus.controller[0] &= ~(0x04);
+            break;
+          case SDLK_UP:
+            bus.controller[0] &= ~(0x08);
+            break;
+          case SDLK_LEFT:
+            bus.controller[0] &= ~(0x02);
+            break;
+          case SDLK_RIGHT:
+            bus.controller[0] &= ~(0x01);
+            break;
+          case SDLK_x:
+            bus.controller[0] &= ~(0x80);
+            break;
+          case SDLK_z:
+            bus.controller[0] &= ~(0x40);
+            break;
+          case SDLK_a:
+            bus.controller[0] &= ~(0x20);
+            break;
+          case SDLK_s:
+            bus.controller[0] &= ~(0x10);
+            break;
+          }
           break;
 
         default:

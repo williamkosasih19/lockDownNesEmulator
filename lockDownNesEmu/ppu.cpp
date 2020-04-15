@@ -7,7 +7,7 @@ uint32_t pixel_s::to_rgba()
   return (uint32_t(255) << 24 | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b));
 }
 
-ppu_c::ppu_c(std::array<uint32_t, 341 * 261>& vid, cartridge_c& cart)
+ppu_c::ppu_c(std::array<uint32_t, 256 * 240>& vid, cartridge_c& cart)
     : vidmem(vid), cartridge(cart)
 {
   palette_table[0x00] = pixel_s(84, 84, 84);
@@ -284,8 +284,7 @@ void ppu_c::clock()
         (bg_lsb_pattern_shifter & 0xff00) | next.bg_tile_lsb;
     bg_msb_pattern_shifter =
         (bg_msb_pattern_shifter & 0xff00) | next.bg_tile_msb;
-    bg_attribute = next.bg_tile_attribute & 0x1;
-    
+    bg_attribute = next.bg_tile_attribute;
   };
 
   if (scanline >= -1 && scanline < 240)
@@ -376,7 +375,7 @@ void ppu_c::clock()
       load_bg_shifter();
       if (mask.render_background || mask.render_sprites)
       {
-        vram.nametable_y = temp_vram.nametable_x;
+        vram.nametable_x = temp_vram.nametable_x;
         vram.coarse_x = temp_vram.coarse_x;
       }
     }
@@ -395,7 +394,6 @@ void ppu_c::clock()
         vram.coarse_y = temp_vram.coarse_y;
       }
     }
-
   }
 
   if (scanline == 241 && cycle == 1)
@@ -404,27 +402,27 @@ void ppu_c::clock()
     if (control.enable_nmi) nmi=true;
   }
   
-  uint8_t bg_pixel = 0x00;
-
-  if (mask.render_background)
+  if (mask.render_background && scanline >= 0 && scanline < 240 && cycle >= 0 &&
+      cycle < 256)
   {
     const uint16_t bit_selector = 0x8000 >> fine_x;
-    bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
-                uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
+    const uint8_t bg_pixel =
+        (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
+         uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
+    vidmem[cycle + scanline * 256] =
+        palette_table[ppu_read(0x3f00 + (bg_attribute << 2) + bg_pixel) & 0x3f]
+            .to_rgba(); 
   }
 
-  if (scanline >= 0 && scanline <= 240 && cycle >= 0 && cycle <= 256)
-    vidmem[cycle + scanline * 256] = palette_table[ppu_read(0x3f00 + (bg_attribute << 2) + bg_pixel) & 0x3f].to_rgba(); 
-
-  cycle++;
-  if (cycle >= 341)
+  if (cycle >= 340)
   {
     cycle = 0;
-    scanline++;
-    if (scanline >= 261)
+    if (scanline >= 260)
     {
       scanline = -1;
       frame_complete = true;
     }
+    else scanline++;
   }
+  else cycle++;
 }

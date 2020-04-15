@@ -127,6 +127,6 @@ private:
 
   uint16_t bg_lsb_pattern_shifter = 0x00;
   uint16_t bg_msb_pattern_shifter = 0x00;
-  uint16_t bg_lsb_attribute_shifter = 0x00;
-  uint16_t bg_msb_attribute_shifter = 0x00;
+  uint16_t bg_attribute = 0x00;
+
 };

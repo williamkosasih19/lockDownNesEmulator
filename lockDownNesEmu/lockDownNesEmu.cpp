@@ -43,7 +43,7 @@ int main()
 
   SDL_Window* window =
       SDL_CreateWindow("LockDown Nes Emulator", SDL_WINDOWPOS_UNDEFINED,
-                       SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
+                       SDL_WINDOWPOS_UNDEFINED, 1024, 768, 0);
 
   auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
   SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
@@ -70,13 +70,50 @@ int main()
   uint64_t cycle = 0;
 
   // nesTestDebug
-  cartridge.load("C:\\Users\\willi\\Documents\\nestest.nes");
+  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\nestest.nes");
   processor.reset();
 
   while (true)
   {
-    if (cycle >= 500)
+    if (cycle >= 50000)
     {
+      while (SDL_PollEvent(&event))
+      {
+        switch (event.type)
+        {
+        case SDL_KEYDOWN:
+          switch (event.key.keysym.sym)
+          {
+          case SDLK_DOWN:
+            bus.controller[0] |= 0x04;
+            break;
+          case SDLK_UP:
+            bus.controller[0] |= 0x08;
+            break;
+          case SDLK_x:
+            bus.controller[0] |= 0x80;
+            break;
+          case SDLK_z:
+            bus.controller[0] |= 0x40;
+            break;
+          case SDLK_a:
+            bus.controller[0] |= 0x20;
+            break;
+          case SDLK_s:
+            bus.controller[0] |= 0x10;
+            break;
+          }
+          break;
+
+        case SDL_KEYUP:
+          bus.controller[0] = 0;
+          break;
+
+        default:
+          break;
+        }
+      }
+
       cycle = 0;
       SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));
 
@@ -85,9 +122,9 @@ int main()
       SDL_RenderPresent(renderer);
     }
 
-    const uint32_t first_tick = SDL_GetTicks();
+    // const uint32_t first_tick = SDL_GetTicks();
     bus.clock();
-    const uint32_t second_tick = SDL_GetTicks();
+    // const uint32_t second_tick = SDL_GetTicks();
     cycle++;
     // SDL_Delay(5);
   }

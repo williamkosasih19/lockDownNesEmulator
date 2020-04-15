@@ -88,8 +88,6 @@ ppu_c::ppu_c(std::array<uint32_t, 341 * 261>& vid, cartridge_c& cart)
   next.bg_tile_attribute = 0;
   next.bg_tile_lsb = 0;
   next.bg_tile_msb = 0;
-  bg_lsb_attribute_shifter = 0;
-  bg_msb_attribute_shifter = 0;
   bg_lsb_pattern_shifter = 0;
   bg_msb_pattern_shifter = 0;
   status.value = 0;
@@ -111,7 +109,7 @@ uint8_t ppu_c::cpu_read(const uint16_t address)
   case 0x06:
     break;
   case 0x02:
-    data = (status.value & 0xe0) | (data_buffer & 0x1f);
+    data = status.value;
     status.vblank = 0;
     load_low_byte = false;
     break;
@@ -163,7 +161,7 @@ void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
     }
     else
     {
-      temp_vram.value = uint16_t(data & 0x3f) << 8 | (temp_vram.value & 0xff);
+      temp_vram.value = (uint16_t(data & 0x3f) << 8) | (temp_vram.value & 0xff);
       load_low_byte = true;
     }
     break;
@@ -216,11 +214,11 @@ uint8_t ppu_c::ppu_read(uint16_t address)
   else if (address >= 0x3f00 && address <= 0x3fff)
   {
     address &= 0x1f;
-	if (address == 0x0010) address = 0x0000;
-	if (address == 0x0014) address = 0x0004;
-	if (address == 0x0018) address = 0x0008;
-	if (address == 0x001C) address = 0x000C;
-	data = palette_memory[address] & (mask.grayscale ? 0x30 : 0x3F);
+	  if (address == 0x0010) address = 0x0000;
+	  if (address == 0x0014) address = 0x0004;
+	  if (address == 0x0018) address = 0x0008;
+	  if (address == 0x001C) address = 0x000C;
+	  data = palette_memory[address] & (mask.grayscale ? 0x30 : 0x3F);
   }
   
   return data;
@@ -286,10 +284,7 @@ void ppu_c::clock()
         (bg_lsb_pattern_shifter & 0xff00) | next.bg_tile_lsb;
     bg_msb_pattern_shifter =
         (bg_msb_pattern_shifter & 0xff00) | next.bg_tile_msb;
-    bg_lsb_attribute_shifter = (bg_lsb_attribute_shifter & 0xff00) |
-                               ((next.bg_tile_attribute & 0x1) ? 0xFF : 0x00);
-    bg_lsb_attribute_shifter = (bg_lsb_attribute_shifter & 0xff00) |
-                               ((next.bg_tile_attribute & 0x2) ? 0xFF : 0x00);
+    bg_attribute = next.bg_tile_attribute & 0x1;
     
   };
 
@@ -304,8 +299,6 @@ void ppu_c::clock()
       // Upadte the shift register.
       if (mask.render_background)
       {
-        bg_lsb_pattern_shifter = bg_lsb_pattern_shifter << 1;
-        bg_msb_pattern_shifter = bg_msb_pattern_shifter << 1;
         bg_lsb_pattern_shifter = bg_lsb_pattern_shifter << 1;
         bg_msb_pattern_shifter = bg_msb_pattern_shifter << 1;
       }
@@ -347,7 +340,7 @@ void ppu_c::clock()
           if (vram.coarse_x == 31)
           {
             vram.coarse_x = 0;
-            vram.nametable_x = ~vram.nametable_x;
+            vram.nametable_x = !vram.nametable_x;
           }
           else
             vram.coarse_x++;
@@ -358,7 +351,7 @@ void ppu_c::clock()
 
     if (cycle == 256 && (mask.render_background || mask.render_sprites))
     {
-      if (vram.fine_y == 8)
+      if (vram.fine_y == 7)
       {
         vram.fine_y = 0;
         if (vram.coarse_y == 29)
@@ -366,6 +359,7 @@ void ppu_c::clock()
           vram.coarse_y = 0;
           vram.nametable_y = !vram.nametable_y;
         }
+        // Don't flip the name table if coarse_y is in the attribute area.
         else if (vram.coarse_y == 31)
           vram.coarse_y = 0;
         else
@@ -404,26 +398,23 @@ void ppu_c::clock()
 
   }
 
-
   if (scanline == 241 && cycle == 1)
   {
     status.vblank = 1;
     if (control.enable_nmi) nmi=true;
   }
   
-  uint8_t bg_pixel = 0x00, bg_palette = 0x00;
+  uint8_t bg_pixel = 0x00;
 
   if (mask.render_background)
   {
     const uint16_t bit_selector = 0x8000 >> fine_x;
     bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
                 uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
-    bg_palette = (uint8_t(bool_t(bg_lsb_attribute_shifter & bit_selector)) |
-                  uint8_t(bool_t(bg_msb_attribute_shifter & bit_selector)) << 1);
   }
 
-  if (scanline >= 0)
-    vidmem[cycle + scanline * 341] = palette_table[ppu_read(0x3f00 + (bg_palette << 2) + bg_pixel) & 0x3f].to_rgba(); 
+  if (scanline >= 0 && scanline <= 240 && cycle >= 0 && cycle <= 256)
+    vidmem[cycle + scanline * 256] = palette_table[ppu_read(0x3f00 + (bg_attribute << 2) + bg_pixel) & 0x3f].to_rgba(); 
 
   cycle++;
   if (cycle >= 341)

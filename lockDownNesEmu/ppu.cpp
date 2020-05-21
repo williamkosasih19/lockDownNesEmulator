@@ -2,9 +2,11 @@
 
 #include <intrin.h>
 
+#include <queue>
+
 uint32_t pixel_s::to_rgba()
 {
-  return (uint32_t(255) << 24 | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b));
+  return (uint32_t(128) << 24 | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b));
 }
 
 ppu_c::ppu_c(std::array<uint32_t, 256 * 240>& vid, cartridge_c& cart)
@@ -103,15 +105,19 @@ uint8_t ppu_c::cpu_read(const uint16_t address)
   {
   case 0x00:
   case 0x01:
-  case 0x03:
-  case 0x04:
-  case 0x05:
-  case 0x06:
     break;
   case 0x02:
     data = status.value;
     status.vblank = 0;
     load_low_byte = false;
+    break;
+  case 0x03:
+    break;
+  case 0x04:
+    data = ((byte_t*)oam_memory.data())[address];
+    break;
+  case 0x05:
+  case 0x06:
     break;
   case 0x07:
     data = data_buffer;
@@ -137,7 +143,9 @@ void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
     break;
   case 0x02:
   case 0x03:
+    break;
   case 0x04:
+    ((byte_t*)oam_memory.data())[address] = data;
     break;
   case 0x05:
     if (load_low_byte)
@@ -186,41 +194,47 @@ uint8_t ppu_c::ppu_read(uint16_t address)
   }
   else if (address >= 0x2000 && address <= 0x3eff)
   {
-    address &= 0x0fff;
+    const uint16_t remm = (address &= 0xfff) & 0x3ff;
     if (cartridge.mirror == vertical_cartridge_mirror)
     {
-      if (address >= 0x00 && address <= 0x3ff)
-        data = name_table[0][address & 0x3ff];
-      else if (address >= 0x400 && address <= 0x7ff)
-        data = name_table[1][address & 0x3ff];
-      else if (address >= 0x800 && address <= 0xbff)
-        data = name_table[0][address & 0x3ff];
-      else if (address >= 0xc00 && address <= 0xfff)
-        data = name_table[1][address & 0x3ff];
+      switch (address / 0x400)
+      {
+      case 0:
+      case 2:
+        data = name_table[0][remm];
+        break;
+      default:
+        data = name_table[1][remm];
+        break;
+      }
     }
     else if (cartridge.mirror == horizontal_cartridge_mirror)
     {
-      if (address >= 0x00 && address <= 0x3ff)
-        data = name_table[0][address & 0x3ff];
-      else if (address >= 0x400 && address <= 0x7ff)
-        data = name_table[0][address & 0x3ff];
-      else if (address >= 0x800 && address <= 0xbff)
-        data = name_table[1][address & 0x3ff];
-      else if (address >= 0xc00 && address <= 0xfff)
-        data = name_table[1][address & 0x3ff];
+      switch (address / 0x400)
+      {
+      case 0:
+      case 1:
+        data = name_table[0][remm];
+        break;
+      default:
+        data = name_table[1][remm];
+        break;
+      }
     }
-
   }
   else if (address >= 0x3f00 && address <= 0x3fff)
   {
-    address &= 0x1f;
-	  if (address == 0x0010) address = 0x0000;
-	  if (address == 0x0014) address = 0x0004;
-	  if (address == 0x0018) address = 0x0008;
-	  if (address == 0x001C) address = 0x000C;
-	  data = palette_memory[address] & (mask.grayscale ? 0x30 : 0x3F);
+    switch ((address &= 0x1f))
+    {
+    case 0x10:
+    case 0x14:
+    case 0x18:
+    case 0x1c:
+      address -= 0x10;
+      break;
+    }
+    data = palette_memory[address];
   }
-  
   return data;
 }
 
@@ -236,41 +250,45 @@ void ppu_c::ppu_write(uint16_t address, const uint8_t data)
   }
   else if (address >= 0x2000 && address <= 0x3eff)
   {
-    address &= 0x0fff;
+    const uint16_t remm = (address &= 0xfff) & 0x3ff;
     if (cartridge.mirror == vertical_cartridge_mirror)
     {
-      if (address >= 0x00 && address <= 0x3ff)
-        name_table[0][address & 0x3ff] = data;
-      else if (address >= 0x400 && address <= 0x7ff)
-        name_table[1][address & 0x3ff] = data;
-      else if (address >= 0x800 && address <= 0xbff)
-        name_table[0][address & 0x3ff] = data;
-      else if (address >= 0xc00 && address <= 0xfff)
-        name_table[1][address & 0x3ff] = data;
+      switch (address / 0x400)
+      {
+      case 0:
+      case 2:
+        name_table[0][remm] = data;
+        break;
+      default:
+        name_table[1][remm] = data;
+        break;
+      }
     }
     else if (cartridge.mirror == horizontal_cartridge_mirror)
     {
-      if (address >= 0x00 && address <= 0x3ff)
-        name_table[0][address & 0x3ff] = data;
-      else if (address >= 0x400 && address <= 0x7ff)
-        name_table[0][address & 0x3ff] = data;
-      else if (address >= 0x800 && address <= 0xbff)
-        name_table[1][address & 0x3ff] = data;
-      else if (address >= 0xc00 && address <= 0xfff)
-        name_table[1][address & 0x3ff] = data;
+      switch (address / 0x400)
+      {
+      case 0:
+      case 1:
+        name_table[0][remm] = data;
+        break;
+      default:
+        name_table[1][remm] = data;
+        break;
+      }
     }
   }
   else if (address >= 0x3f00 && address <= 0x3fff)
   {
-    address &= 0x1f;
-    if (address == 0x0010)
-      address = 0x0000;
-    if (address == 0x0014)
-      address = 0x0004;
-    if (address == 0x0018)
-      address = 0x0008;
-    if (address == 0x001C)
-      address = 0x000C;
+    switch ((address &= 0x1f))
+    {
+    case 0x10:
+    case 0x14:
+    case 0x18:
+    case 0x1c:
+      address -= 0x10;
+      break;
+    }
     palette_memory[address] = data;
   }
 
@@ -301,6 +319,15 @@ void ppu_c::clock()
         bg_lsb_pattern_shifter = bg_lsb_pattern_shifter << 1;
         bg_msb_pattern_shifter = bg_msb_pattern_shifter << 1;
       }
+      for (uint8_t i = 0; i < scanline_sprites.size(); i++)
+      {
+        if (scanline_sprites[i].x == 0)
+        {
+          sprite_shifter_lsb[i] <<= 1;
+          sprite_shifter_msb[i] <<= 1;
+        }
+        scanline_sprites[i].x--;
+      }
 
       switch ((cycle - 1) % 8)
       {
@@ -330,7 +357,7 @@ void ppu_c::clock()
       case 6:
         next.bg_tile_msb =
             ppu_read((control.background_pattern_table << 12) +
-                     (uint16_t(next.bg_tile_id) << 4) + vram.fine_y + 8);
+                     (uint16_t(next.bg_tile_id) << 4) + 8 + vram.fine_y);
         break;
       case 7:
         // Increment scroll x.
@@ -362,9 +389,7 @@ void ppu_c::clock()
         else if (vram.coarse_y == 31)
           vram.coarse_y = 0;
         else
-        {
           vram.coarse_y++;
-        }
       }
       else
         vram.fine_y++;
@@ -377,6 +402,28 @@ void ppu_c::clock()
       {
         vram.nametable_x = temp_vram.nametable_x;
         vram.coarse_x = temp_vram.coarse_x;
+      }
+      if (scanline >= -1)
+      {
+        scanline_sprites.clear();
+        for (uint8_t i = 0;
+             i < oam_memory.size() && scanline_sprites.size() < 9; i++)
+        {
+          const uint16_t diff = uint16_t(scanline) - oam_memory[i].y;
+          if (diff < (control.sprite_size ? 16 : 8))
+          {
+            if (i == 0)
+            {
+              // sprite zero hit possible
+            }
+            scanline_sprites.push_back(oam_memory[i]);
+          }
+          if (scanline_sprites.size() == 8)
+          {
+            status.sprite_overflow = true;
+            break;
+          }
+        }
       }
     }
 
@@ -402,14 +449,45 @@ void ppu_c::clock()
     if (control.enable_nmi) nmi=true;
   }
   
-  if (mask.render_background && scanline >= 0 && scanline < 240 && cycle >= 0 &&
+  if (scanline >= 0 && scanline < 240 && cycle >= 0 &&
       cycle < 256)
   {
-    const uint16_t bit_selector = 0x8000 >> fine_x;
-    const uint8_t bg_pixel =
-        (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
+    uint8_t bg_pixel;
+    uint8_t fg_pixel;
+    uint8_t fg_priority;
+    uint8_t fg_pallete;
+
+    if (mask.render_background)
+    {
+      const uint16_t bit_selector = 0x8000 >> fine_x;
+      bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
          uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
-    vidmem[cycle + scanline * 256] =
+    }
+    if (mask.render_sprites)
+    {
+      for (uint8_t i = 0; i < scanline_sprites.size(); i++)
+      {
+        if (scanline_sprites[i].x == 0)
+        {
+          bool_t sprite_msb = bool_t(sprite_shifter_msb[i] & 0x80);
+          bool_t sprite_lsb = bool_t(sprite_shifter_lsb[i] & 0x80);
+          fg_pixel = (uint8_t(sprite_msb) << 1) | uint8_t(sprite_lsb);
+          fg_pallete = (scanline_sprites[i].attribute & 0x03) + 4;
+          fg_priority = !(scanline_sprites[i].attribute & 0x20);
+
+          if (fg_pixel)
+          {
+            if (i==0)
+            {
+              // sprite zero rendered
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    vidmem[cycle + uint32_t(scanline) * 256] =
         palette_table[ppu_read(0x3f00 + (bg_attribute << 2) + bg_pixel) & 0x3f]
             .to_rgba(); 
   }

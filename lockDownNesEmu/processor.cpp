@@ -76,7 +76,7 @@ void processor_c::irq()
 
 void processor_c::nmi()
 {
-  //// Push the upper half of the pc to stack.
+  // Push the upper half of the pc to stack.
   bus.cpu_write(0x100 + sp, pc >> 8);
   bus.cpu_write(0x100 + sp - 1, pc & 0xff);
 
@@ -88,7 +88,7 @@ void processor_c::nmi()
   sp -= 3;
 
   addr = 0xfffa;
-  //// Fetch handler location.
+  // Fetch handler location.
   const uint16_t low = bus.cpu_read(addr);
   const uint16_t high = bus.cpu_read(addr + 1);
 
@@ -234,7 +234,7 @@ void processor_c::execute()
       op_additional_cycle = true;
       break;
     }
-    // A = A - M - (1 - C)
+
     case sbc_op: {
       fetch_data();
 
@@ -326,8 +326,8 @@ void processor_c::execute()
     case bit_op: {
       fetch_data();
 
-      const uint16_t temp = a & data;
-      set_flag(zero_cpu_fl, !(temp & 0xff));
+      const uint8_t temp = a & data;
+      set_flag(zero_cpu_fl, !temp);
       set_flag(negative_cpu_fl, data & cpu_flags_e::negative_cpu_fl);
       set_flag(overflow_cpu_fl, data & cpu_flags_e::overflow_cpu_fl);
       break;
@@ -360,27 +360,28 @@ void processor_c::execute()
       break;
     case rol_op: {
       fetch_data();
-      const uint16_t temp =
-          uint16_t((data << 1) | uint16_t(get_flag(carry_cpu_fl)));
-      set_flag(carry_cpu_fl, temp & 0xff00);
-      set_flag(zero_cpu_fl, (temp & 0xff) == 0x00);
-      set_flag(negative_cpu_fl, temp & 0x80);
+      const bool_t carry_temp = data & 0x80;
+      data = (data << 1) | get_flag(carry_cpu_fl);
+      set_flag(carry_cpu_fl, carry_temp);
+      set_flag(zero_cpu_fl, !data);
+      set_flag(negative_cpu_fl, data & 0x80);
       if (addr_mode == imp_addr)
-        a = temp & 0xff;
+        a = data;
       else
-        bus.cpu_write(addr, temp & 0xff);
+        bus.cpu_write(addr, data);
       break;
     }
     case ror_op: {
       fetch_data();
-      const uint16_t temp = uint16_t(get_flag(carry_cpu_fl) << 7 | (data >> 1));
-      set_flag(carry_cpu_fl, data & 0x1);
-      set_flag(zero_cpu_fl, !(temp & 0xff));
-      set_flag(negative_cpu_fl, temp & 0x80);
+      const bool_t carry_temp = data & 0x1;
+      data = (data >> 1) | (uint8_t(get_flag(carry_cpu_fl)) << 7);
+      set_flag(carry_cpu_fl, carry_temp);
+      set_flag(zero_cpu_fl, !data);
+      set_flag(negative_cpu_fl, data & 0x80);
       if (addr_mode == imp_addr)
-        a = temp & 0xff;
+        a = data;
       else
-        bus.cpu_write(addr, temp & 0xff);
+        bus.cpu_write(addr, data);
       break;
     }
     case rti_op:
@@ -479,9 +480,9 @@ void processor_c::execute()
       break;
     case dec_op: {
       fetch_data();
-      const uint16_t temp = data - 1;
-      bus.cpu_write(addr, temp & 0xff);
-      set_flag(zero_cpu_fl, !(temp & 0xff));
+      const uint8_t temp = data - 1;
+      bus.cpu_write(addr, temp);
+      set_flag(zero_cpu_fl, !temp);
       set_flag(negative_cpu_fl, temp & 0x80);
       break;
     }
@@ -514,7 +515,7 @@ void processor_c::execute()
     }
     case jsr_op:
       pc--;
-      bus.cpu_write(0x100 + sp, (pc >> 8) & 0xff);
+      bus.cpu_write(0x100 + sp, pc >> 8);
       bus.cpu_write(0x100 + sp - 1, pc & 0xff);
 
       sp -= 2;
@@ -525,9 +526,9 @@ void processor_c::execute()
       break;
     case inc_op: {
       fetch_data();
-      const uint16_t temp = data + 1;
-      bus.cpu_write(addr, temp & 0xff);
-      set_flag(zero_cpu_fl, !(temp & 0xff));
+      const uint8_t temp = data + 1;
+      bus.cpu_write(addr, temp);
+      set_flag(zero_cpu_fl, !temp);
       set_flag(negative_cpu_fl, temp & 0x80);
       break;
     }
@@ -552,17 +553,17 @@ void processor_c::execute()
     }
     case cpx_op: {
       fetch_data();
-      const uint16_t temp = uint16_t(x) - uint16_t(data);
+      const uint8_t temp = x - data;
       set_flag(carry_cpu_fl, x >= data);
-      set_flag(zero_cpu_fl, !(temp & 0xff));
+      set_flag(zero_cpu_fl, !temp);
       set_flag(negative_cpu_fl, temp & 0x80);
       break;
     }
     case cpy_op: {
       fetch_data();
-      const uint16_t temp = uint16_t(y) - uint16_t(data);
+      const uint8_t temp = y - data;
       set_flag(carry_cpu_fl, y >= data);
-      set_flag(zero_cpu_fl, !(temp & 0xff));
+      set_flag(zero_cpu_fl, !temp);
       set_flag(negative_cpu_fl, temp & 0x80);
       break;
     }

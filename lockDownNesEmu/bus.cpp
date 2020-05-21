@@ -41,8 +41,8 @@ uint8_t bus_c::cpu_read(const uint16_t address)
   else if (address >= 0x4016 && address <= 0x4017)
   {
     // Read the rightmost statte of the controller then shift left.
-    data = (controller_state[address & 0b1] & 0x80) > 0;
-    controller_state[address & 0b1] = controller_state[address & 0b1] << 1;
+    data = bool_t(controller_state[address & 1] & 0x80);
+    controller_state[address & 1] = controller_state[address & 1] << 1;
   }
   return data;
 }
@@ -62,22 +62,37 @@ void bus_c::cpu_write(const uint16_t address, const uint8_t data)
   }
   else if (address >= 0x4016 && address <= 0x4017)
   {
-    controller_state[address & 0b1] = controller[address & 0b1];
+    controller_state[address & 1] = controller[address & 1];
   }
 }
 
 void bus_c::clock()
 {
-  if (cycle == 0)
-  {
-    processor_ptr->execute();
-    if (ppu.nmi)
-    {
-      processor_ptr->nmi();
-      ppu.nmi = false;
-    }
-      
-  }
+
   ppu.clock();
-  cycle = (cycle + 1) % 3;
+  // If the ppu sets the oam flag, and clock is even, then process DMA.
+  // Otherwise let cpu run for another cycle
+  if (ppu.oam_ready && (cycle % 2 == 0))
+  {
+    byte_t* const oam_address =
+        reinterpret_cast<byte_t*>(ppu.oam_memory.data());
+    auto ram_iterator = ram.begin() + (uint64_t(ppu.oam_page) << 8);
+    std::copy(ram_iterator, ram_iterator + 256, oam_address);
+    ppu.oam_ready = false;
+    cycle += 256;
+    return;
+  }
+  else
+  {
+    if (cycle % 3 == 0)
+    {
+      processor_ptr->execute();
+      if (ppu.nmi)
+      {
+        processor_ptr->nmi();
+        ppu.nmi = false;
+      }
+    }
+  }
+  cycle++;
 }

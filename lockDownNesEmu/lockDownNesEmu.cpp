@@ -28,8 +28,8 @@ bool_t verbose;
 
 int main()
 { 
-  cout << "Lockdown Nes Emulator v0.01" << endl;
-  cout << "    27 March 2020" << endl;
+  cout << "Lockdown Nes Emulator v0.02" << endl;
+  cout << "    21 April 2020" << endl;
   cout << endl;
   cout << "Type help for help" << endl;
   cout << "> ready!" << endl;
@@ -70,7 +70,7 @@ int main()
   uint64_t cycle = 0;
 
   // nesTestDebug
-  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\bf.nes");
+  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\ic.nes");
   processor.reset();
 
   while (true)

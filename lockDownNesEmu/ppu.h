@@ -11,6 +11,8 @@
 #include "cartridge.h"
 
 #include <array>
+#include <queue>
+#include <functional>
 
 struct pixel_s
 {
@@ -19,6 +21,14 @@ struct pixel_s
   pixel_s(const uint8_t r, const uint8_t g, const uint8_t b)
       : r(r), g(g), b(b){};
   uint32_t to_rgba();
+};
+
+struct sprite_s
+{
+  uint8_t y;
+  uint8_t tile_id;
+  uint8_t attribute;
+  uint8_t x;
 };
 
 class ppu_c
@@ -35,8 +45,19 @@ public:
   uint8_t ppu_read(uint16_t address);
   void ppu_write(uint16_t address, const uint8_t data);
 
+  std::array<sprite_s, 64> oam_memory;
+
   bool_t nmi = false;
   bool_t frame_complete = false;
+  bool_t oam_ready = false;
+
+  uint8_t oam_page = 0x00;
+
+
+  std::vector<sprite_s> scanline_sprites;
+
+  std::array<uint8_t, 8> sprite_shifter_lsb;
+  std::array<uint8_t, 8> sprite_shifter_msb;
 
 private:
   std::array<std::array<uint8_t, 1024>, 2> name_table;

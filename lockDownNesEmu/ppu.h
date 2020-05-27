@@ -49,12 +49,11 @@ public:
 
   bool_t nmi = false;
   bool_t frame_complete = false;
-  bool_t oam_ready = false;
 
   uint8_t oam_page = 0x00;
 
-
-  std::vector<sprite_s> scanline_sprites;
+  using sprite_index_pair = std::pair<sprite_s, uint8_t>;
+  std::vector<sprite_index_pair> scanline_sprites;
 
   std::array<uint8_t, 8> sprite_shifter_lsb;
   std::array<uint8_t, 8> sprite_shifter_msb;
@@ -149,5 +148,7 @@ private:
   uint16_t bg_lsb_pattern_shifter = 0x00;
   uint16_t bg_msb_pattern_shifter = 0x00;
   uint16_t bg_attribute = 0x00;
+
+  bool_t sprite_zero_rendered = false;
 
 };

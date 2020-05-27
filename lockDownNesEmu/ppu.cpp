@@ -114,7 +114,7 @@ uint8_t ppu_c::cpu_read(const uint16_t address)
   case 0x03:
     break;
   case 0x04:
-    data = ((byte_t*)oam_memory.data())[address];
+    data = ((byte_t*)oam_memory.data())[oam_page];
     break;
   case 0x05:
   case 0x06:
@@ -143,9 +143,10 @@ void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
     break;
   case 0x02:
   case 0x03:
+    oam_page = data;
     break;
   case 0x04:
-    ((byte_t*)oam_memory.data())[address] = data;
+    ((byte_t*)oam_memory.data())[oam_page] = data;
     break;
   case 0x05:
     if (load_low_byte)
@@ -308,12 +309,17 @@ void ppu_c::clock()
   if (scanline >= -1 && scanline < 240)
   {
     if (scanline == -1 && cycle == 1)
+    {
       status.vblank = 0;
+      status.sprite_overflow = 0;
+      status.sprite_zero_hit = 0;
+    }
+      
     if (scanline == 0 && cycle == 0)
       cycle++;
     if ((cycle > 1 && cycle < 258) || (cycle > 320 && cycle < 338))
     {
-      // Upadte the shift register.
+      // Update the shift register.
       if (mask.render_background)
       {
         bg_lsb_pattern_shifter = bg_lsb_pattern_shifter << 1;
@@ -321,12 +327,15 @@ void ppu_c::clock()
       }
       for (uint8_t i = 0; i < scanline_sprites.size(); i++)
       {
-        if (scanline_sprites[i].x == 0)
+        // If a sprite has "collided" with the x scan then update
+        // the shifters.
+        if (scanline_sprites[i].first.x == 0)
         {
           sprite_shifter_lsb[i] <<= 1;
           sprite_shifter_msb[i] <<= 1;
         }
-        scanline_sprites[i].x--;
+        else
+          scanline_sprites[i].first.x--;
       }
 
       switch ((cycle - 1) % 8)
@@ -400,23 +409,27 @@ void ppu_c::clock()
       load_bg_shifter();
       if (mask.render_background || mask.render_sprites)
       {
+        // Copy hori(t) to hori(v)
         vram.nametable_x = temp_vram.nametable_x;
         vram.coarse_x = temp_vram.coarse_x;
       }
-      if (scanline >= -1)
+      if (scanline >= 0)
       {
         scanline_sprites.clear();
+
+        sprite_shifter_lsb.fill(0x00);
+        sprite_shifter_msb.fill(0x00);
+
         for (uint8_t i = 0;
              i < oam_memory.size() && scanline_sprites.size() < 9; i++)
         {
+          // If the vertical difference between the scanline and the
+          // sprite at a certain index is less than 16 or 78, then it 
+          // should be rendered in this scanline.
           const uint16_t diff = uint16_t(scanline) - oam_memory[i].y;
           if (diff < (control.sprite_size ? 16 : 8))
           {
-            if (i == 0)
-            {
-              // sprite zero hit possible
-            }
-            scanline_sprites.push_back(oam_memory[i]);
+            scanline_sprites.push_back(sprite_index_pair(oam_memory[i], i));
           }
           if (scanline_sprites.size() == 8)
           {
@@ -427,12 +440,81 @@ void ppu_c::clock()
       }
     }
 
-    if (cycle == 338 || cycle == 340)
+    if (cycle == 340)
     {
       next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
     }
 
-    if (scanline == -1 && cycle >= 280 && cycle < 305)
+    // Prepare the sprites or the next scanline
+    if (cycle == 340)
+    {
+     
+      for (uint8_t i = 0; i < scanline_sprites.size(); i++)
+      {
+        const sprite_s& sprite = scanline_sprites[i].first;
+        uint8_t sprite_data_lsb, sprite_data_msb;
+        uint8_t sprite_addr_lsb, sprite_addr_msb;
+
+        // sprite_size == 0 -> 8*8 sprite tile
+        // sprite_size == 1 -> 8*16 sprite_tile
+        if (!control.sprite_size)
+        {
+          sprite_addr_lsb =
+              ((control.sprite_pattern_table << 12) | (sprite.tile_id << 4)) |
+              (((sprite.attribute & 0x80) ? (7 - scanline + sprite.y) : (scanline - sprite.y)));
+          // If sprite.attribute is high then the sprite is flipped vertically.
+        }
+        else
+        {
+          if (!(sprite.attribute & 0x80))
+          {
+            sprite_addr_lsb =
+                ((sprite.tile_id & 0x01) << 12) |
+                ((((scanline - sprite.y < 8) ? sprite.tile_id & 0xFE
+                                           : (sprite.tile_id & 0xFE) + 1))
+                 << 4) |
+                ((scanline - sprite.y) & 0x07);
+          }
+          else
+          {
+            sprite_addr_lsb =
+                ((sprite.tile_id & 0x01) << 12) |
+                ((((scanline - sprite.y < 8) ? ((sprite.tile_id & 0xFE) + 1) : sprite.tile_id & 0xFE))
+                 << 4) |
+                ((7 - scanline + sprite.y) & 0x07);
+          }
+        }
+        sprite_addr_msb = sprite_addr_lsb + 8;
+
+        sprite_data_lsb = ppu_read(sprite_addr_lsb);
+        sprite_data_msb = ppu_read(sprite_addr_msb);
+
+        if (sprite.attribute & 0x40)
+        {
+          // This little lambda function "flips" a byte
+          // so 0b11100000 becomes 0b00000111. It's very
+          // clever, and stolen completely from here:
+          // https://stackoverflow.com/a/2602885
+          const auto flipbyte = [](uint8_t b) {
+            b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+            b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+            b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+            return b;
+          };
+
+          sprite_data_lsb = flipbyte(sprite_data_lsb);
+          sprite_data_msb = flipbyte(sprite_data_msb);
+        }
+
+        sprite_shifter_lsb[i] = sprite_data_lsb;
+        sprite_shifter_msb[i] = sprite_data_msb;
+      }
+
+    }
+
+    // vert(v) = vert(t) each tick from 280 to 304 according
+    // to https://wiki.nesdev.com/w/images/4/4f/Ppu.svg
+    if (scanline == -1 && cycle >= 280 && cycle <= 304)
     {
       if (mask.render_background || mask.render_sprites)
       {
@@ -452,43 +534,101 @@ void ppu_c::clock()
   if (scanline >= 0 && scanline < 240 && cycle >= 0 &&
       cycle < 256)
   {
-    uint8_t bg_pixel;
-    uint8_t fg_pixel;
-    uint8_t fg_priority;
-    uint8_t fg_pallete;
+    uint8_t bg_pixel = 0x00;
+    uint8_t bg_palette = 0x00;
+    uint8_t fg_pixel = 0x00;
+    uint8_t fg_priority = 0x00;
+    uint8_t fg_palette = 0x00;
 
     if (mask.render_background)
     {
-      const uint16_t bit_selector = 0x8000 >> fine_x;
+      const uint16_t bit_selector = uint32_t(0x8000) >> fine_x;
       bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
          uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
+      bg_palette = bg_attribute;
     }
     if (mask.render_sprites)
     {
+      sprite_zero_rendered = false;
       for (uint8_t i = 0; i < scanline_sprites.size(); i++)
       {
-        if (scanline_sprites[i].x == 0)
+        if (scanline_sprites[i].first.x == 0)
         {
+          if (!sprite_shifter_lsb[i] && !sprite_shifter_msb[i])
+          {
+            // Hack to erase sprite that has been been drawn earlier in 
+            // the scanline.
+            scanline_sprites[i].first.x = 0xff;
+            continue;
+          }
           bool_t sprite_msb = bool_t(sprite_shifter_msb[i] & 0x80);
           bool_t sprite_lsb = bool_t(sprite_shifter_lsb[i] & 0x80);
           fg_pixel = (uint8_t(sprite_msb) << 1) | uint8_t(sprite_lsb);
-          fg_pallete = (scanline_sprites[i].attribute & 0x03) + 4;
-          fg_priority = !(scanline_sprites[i].attribute & 0x20);
+          fg_palette = (scanline_sprites[i].first.attribute & 0x03) + 4;
+          fg_priority = !(scanline_sprites[i].first.attribute & 0x20);
 
-          if (fg_pixel)
+          if (scanline_sprites[i].second == 0)
           {
-            if (i==0)
-            {
-              // sprite zero rendered
-            }
-            break;
+            sprite_zero_rendered = true;
           }
         }
       }
     }
 
-    vidmem[cycle + uint32_t(scanline) * 256] =
-        palette_table[ppu_read(0x3f00 + (bg_attribute << 2) + bg_pixel) & 0x3f]
+    uint8_t pixel = 0;
+    uint8_t palette = 0;
+
+    if (!bg_pixel && !fg_pixel)
+    {
+      pixel = 0x0;
+      palette = 0x0;
+    }
+    else if (!bg_pixel && fg_pixel)
+    {
+      pixel = fg_pixel;
+      palette = fg_palette;
+    }
+    else if (bg_pixel && !fg_pixel)
+    {
+      pixel = bg_pixel;
+      palette = bg_palette;
+    }
+    else if (bg_pixel && fg_pixel)
+    {
+      if (fg_priority)
+      {
+        pixel = fg_pixel;
+        palette = fg_palette;
+      }
+      else
+      {
+        pixel = bg_pixel;
+        palette = bg_palette;
+      }
+    }
+
+    if (sprite_zero_rendered)
+    {
+      if (mask.render_background && mask.render_sprites)
+      {
+        if (!(mask.render_background_left | mask.render_sprites_left))
+        {
+          if (cycle >= 9 && cycle < 258)
+          {
+            status.sprite_zero_hit = true;
+          }
+        }
+        else
+        {
+          if (cycle >= 1 && cycle < 258)
+          {
+            status.sprite_zero_hit = true;
+          }
+        }
+      }
+    }
+    vidmem[uint64_t(cycle) + uint64_t(scanline) * 256] =
+        palette_table[ppu_read(0x3f00 + (palette << 2) + pixel) & 0x3f]
             .to_rgba(); 
   }
 

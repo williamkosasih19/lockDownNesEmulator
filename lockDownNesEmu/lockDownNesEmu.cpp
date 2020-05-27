@@ -70,7 +70,7 @@ int main()
   uint64_t cycle = 0;
 
   // nesTestDebug
-  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\ic.nes");
+  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\smb.nes");
   processor.reset();
 
   while (true)

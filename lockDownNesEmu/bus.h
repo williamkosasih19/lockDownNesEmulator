@@ -30,6 +30,10 @@ private:
 
   processor_c* processor_ptr;
 
+  uint16_t dma_page = 0x0;
+  uint16_t dma_address = 0x0;
+  bool_t dma_transfer = false;
+
 public:
   bus_c(cartridge_c&, ppu_c&);
   uint8_t cpu_read(const uint16_t address);

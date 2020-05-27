@@ -64,22 +64,25 @@ void bus_c::cpu_write(const uint16_t address, const uint8_t data)
   {
     controller_state[address & 1] = controller[address & 1];
   }
+  else if (address == 0x4014)
+  {
+    dma_page = data;
+    dma_transfer = true;
+  }
 }
 
 void bus_c::clock()
 {
-
   ppu.clock();
   // If the ppu sets the oam flag, and clock is even, then process DMA.
   // Otherwise let cpu run for another cycle
-  if (ppu.oam_ready && (cycle % 2 == 0))
+  if (cycle % 2 == 0 && dma_transfer)
   {
     byte_t* const oam_address =
         reinterpret_cast<byte_t*>(ppu.oam_memory.data());
-    auto ram_iterator = ram.begin() + (uint64_t(ppu.oam_page) << 8);
+    auto ram_iterator = ram.begin() + (uint64_t(dma_page) << 8);
     std::copy(ram_iterator, ram_iterator + 256, oam_address);
-    ppu.oam_ready = false;
-    cycle += 256;
+    dma_transfer = false;
     return;
   }
   else

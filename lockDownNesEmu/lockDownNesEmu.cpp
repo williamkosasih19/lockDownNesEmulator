@@ -75,7 +75,7 @@ int main()
 
   while (true)
   {
-    if (cycle >= 50000)
+    if (cycle >= 3800)
     {
       while (SDL_PollEvent(&event))
       {

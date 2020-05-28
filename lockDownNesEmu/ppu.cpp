@@ -107,7 +107,7 @@ uint8_t ppu_c::cpu_read(const uint16_t address)
   case 0x01:
     break;
   case 0x02:
-    data = status.value;
+    data = (status.value & 0xe0) | (data_buffer & 0x1f);
     status.vblank = 0;
     load_low_byte = false;
     break;
@@ -142,6 +142,7 @@ void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
     mask.value = data;
     break;
   case 0x02:
+    break;
   case 0x03:
     oam_page = data;
     break;
@@ -161,6 +162,7 @@ void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
       temp_vram.coarse_x = data >> 3;
       load_low_byte = true;
     }
+    break;
   case 0x06:
     if (load_low_byte)
     {
@@ -170,14 +172,14 @@ void ppu_c::cpu_write(const uint16_t address, const uint8_t data)
     }
     else
     {
-      temp_vram.value = (uint16_t(data & 0x3f) << 8) | (temp_vram.value & 0xff);
+      temp_vram.value = ((uint16_t(data & 0x3f)) << 8) | (temp_vram.value & 0xff);
       load_low_byte = true;
     }
     break;
-    case 0x07:
-    ppu_write(vram.value, data);
-    vram.value += (control.vram_increment_mode ? 32 : 1);
-      break;
+      case 0x07:
+      ppu_write(vram.value, data);
+      vram.value += (control.vram_increment_mode ? 32 : 1);
+    break;
   }
 }
 
@@ -394,7 +396,6 @@ void ppu_c::clock()
           vram.coarse_y = 0;
           vram.nametable_y = !vram.nametable_y;
         }
-        // Don't flip the name table if coarse_y is in the attribute area.
         else if (vram.coarse_y == 31)
           vram.coarse_y = 0;
         else
@@ -440,7 +441,7 @@ void ppu_c::clock()
       }
     }
 
-    if (cycle == 340)
+    if (cycle == 338 || cycle == 340)
     {
       next.bg_tile_id = ppu_read(0x2000 | (vram.value & 0xfff));
     }
@@ -542,7 +543,7 @@ void ppu_c::clock()
 
     if (mask.render_background)
     {
-      const uint16_t bit_selector = uint32_t(0x8000) >> fine_x;
+      const uint16_t bit_selector = uint16_t(0x8000) >> fine_x;
       bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
          uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
       bg_palette = bg_attribute;

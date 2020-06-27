@@ -305,7 +305,9 @@ void ppu_c::clock()
         (bg_lsb_pattern_shifter & 0xff00) | next.bg_tile_lsb;
     bg_msb_pattern_shifter =
         (bg_msb_pattern_shifter & 0xff00) | next.bg_tile_msb;
-    bg_attribute = next.bg_tile_attribute;
+    bg_attribute = (bg_attribute & 0xff00) | (next.bg_tile_attribute << 6) |
+                   (next.bg_tile_attribute << 4) |
+                   (next.bg_tile_attribute << 2) | next.bg_tile_attribute;
   };
 
   if (scanline >= -1 && scanline < 240)
@@ -319,13 +321,15 @@ void ppu_c::clock()
       
     if (scanline == 0 && cycle == 0)
       cycle++;
-    if ((cycle > 1 && cycle < 258) || (cycle > 320 && cycle < 338))
+    if ((cycle > 0 && cycle < 258) || (cycle > 320 && cycle < 338))
     {
       // Update the shift register.
       if (mask.render_background)
       {
         bg_lsb_pattern_shifter = bg_lsb_pattern_shifter << 1;
         bg_msb_pattern_shifter = bg_msb_pattern_shifter << 1;
+        if (cycle % 2 == 0)
+          bg_attribute <<= 2;
       }
       for (uint8_t i = 0; i < scanline_sprites.size(); i++)
       {
@@ -430,7 +434,13 @@ void ppu_c::clock()
           const uint16_t diff = uint16_t(scanline) - oam_memory[i].y;
           if (diff < (control.sprite_size ? 16 : 8))
           {
-            scanline_sprites.push_back(sprite_index_pair(oam_memory[i], i));
+            // A quick hack to make sprite drawn later relative to the background.
+            // Without this, the sprite is drawn earlier than it should be.
+            // Temporary hack until I can figure out why.
+            auto temporary_sprite = oam_memory[i];
+            temporary_sprite.x += 18;
+
+            scanline_sprites.push_back(sprite_index_pair(temporary_sprite, i));
           }
           if (scanline_sprites.size() == 8)
           {
@@ -546,7 +556,10 @@ void ppu_c::clock()
       const uint16_t bit_selector = uint16_t(0x8000) >> fine_x;
       bg_pixel = (uint8_t(bool_t(bg_lsb_pattern_shifter & bit_selector)) |
          uint8_t(bool_t(bg_msb_pattern_shifter & bit_selector)) << 1);
-      bg_palette = bg_attribute;
+      // Take the two most significant bits for the attribute(4 possible values).
+      bg_palette =
+          uint16_t(bg_attribute & (0xc000 >> (2 * uint8_t(fine_x / 2)))) >>
+          (2 * (uint8_t((16 - fine_x) - 1) / 2));
     }
     if (mask.render_sprites)
     {

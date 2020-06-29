@@ -467,7 +467,7 @@ void ppu_c::clock()
       {
         const sprite_s& sprite = scanline_sprites[i].first;
         uint8_t sprite_data_lsb, sprite_data_msb;
-        uint8_t sprite_addr_lsb, sprite_addr_msb;
+        uint16_t sprite_addr_lsb, sprite_addr_msb;
 
         // sprite_size == 0 -> 8*8 sprite tile
         // sprite_size == 1 -> 8*16 sprite_tile
@@ -478,26 +478,26 @@ void ppu_c::clock()
               (((sprite.attribute & 0x80) ? (7 - scanline + sprite.y) : (scanline - sprite.y)));
           // If sprite.attribute is high then the sprite is flipped vertically.
         }
-        //else
-        //{
-        //  if (sprite.attribute & 0x80)
-        //  {
-        //    sprite_addr_lsb =
-        //        ((sprite.tile_id & 0x01) << 12) |
-        //        ((((scanline - sprite.y < 8) ? sprite.tile_id & 0xFE
-        //                                   : (sprite.tile_id & 0xFE) + 1))
-        //         << 4) |
-        //        ((scanline - sprite.y) & 0x07);
-        //  }
-        //  else
-        //  {
-        //    sprite_addr_lsb =
-        //        ((sprite.tile_id & 0x01) << 12) |
-        //        ((((scanline - sprite.y < 8) ? ((sprite.tile_id & 0xFE) + 1) : sprite.tile_id & 0xFE))
-        //         << 4) |
-        //        ((7 - scanline + sprite.y) & 0x07);
-        //  }
-        //}
+        else
+        {
+          if (sprite.attribute & 0x80)
+          {
+            sprite_addr_lsb =
+                ((sprite.tile_id & 0x01) << 12) |
+                ((((scanline - sprite.y < 8) ? sprite.tile_id & 0xFE
+                                           : (sprite.tile_id & 0xFE) + 1))
+                 << 4) |
+                ((scanline - sprite.y) & 0x07);
+          }
+          else
+          {
+            sprite_addr_lsb =
+                ((sprite.tile_id & 0x01) << 12) |
+                ((((scanline - sprite.y < 8) ? ((sprite.tile_id & 0xFE) + 1) : sprite.tile_id & 0xFE))
+                 << 4) |
+                ((7 - scanline + sprite.y) & 0x07);
+          }
+        }
         sprite_addr_msb = sprite_addr_lsb + 8;
 
         sprite_data_lsb = ppu_read(sprite_addr_lsb);

@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <memory>
 #include <array>
+#include <deque>
 
 #include <windows.h>
 
@@ -26,8 +27,34 @@ using namespace std;
 
 bool_t verbose;
 
+struct snapshot_s
+{
+  array<unsigned int, 256 * 240> vidmem;
+  ppu_c* ppu_ptr;
+  bus_c* bus_ptr;
+  processor_c* processor_ptr;
+  snapshot_s(const array<unsigned int, 256 * 240>& vmem, const ppu_c& ppu,
+    const bus_c& bus, const processor_c& processor) { 
+    vidmem = vmem;
+    ppu_ptr = (ppu_c*)malloc(sizeof(ppu));
+    memcpy(ppu_ptr, &ppu, sizeof(ppu));
+
+    bus_ptr = (bus_c*)malloc(sizeof(bus));
+    memcpy(bus_ptr, &bus, sizeof(bus));
+
+    processor_ptr = (processor_c*)malloc(sizeof(processor));
+    memcpy(processor_ptr, &processor, sizeof(processor));
+  }
+  ~snapshot_s()
+  {
+    free(ppu_ptr);
+    free(bus_ptr);
+    free(processor_ptr);
+  }
+};
+
 int main()
-{ 
+{
   cout << "Lockdown Nes Emulator v0.02" << endl;
   cout << "    21 April 2020" << endl;
   cout << endl;
@@ -56,9 +83,6 @@ int main()
     vidmem[i] = 0;
   }
 
-  bool_t quit = false;
-  bool_t static_noise = false;
-
   // Component initialisation
   cartridge_c cartridge;
   ppu_c ppu(vidmem, cartridge);
@@ -69,98 +93,14 @@ int main()
 
   uint64_t cycle = 0;
 
-  // nesTestDebug
-  cartridge.load("C:\\Users\\willi\\Documents\\LockDownNesEmu\\smb.nes");
-  processor.reset();
+  bool_t quit = false;
+  bool_t static_noise = false;
+  bool_t pause = false;
+  uint16_t cycle_threshold = 8000;
+  uint32_t backup_interval = 175000;
+  uint8_t backup_threshold = 500;
 
-  while (true)
-  {
-    if (cycle >= 8000)
-    {
-      while (SDL_PollEvent(&event))
-      {
-        switch (event.type)
-        {
-        case SDL_KEYDOWN:
-          switch (event.key.keysym.sym)
-          {
-          case SDLK_DOWN:
-            bus.controller[0] |= 0x04;
-            break;
-          case SDLK_UP:
-            bus.controller[0] |= 0x08;
-            break;
-          case SDLK_LEFT:
-            bus.controller[0] |= 0x02;
-            break;
-          case SDLK_RIGHT:
-            bus.controller[0] |= 0x01;
-            break;
-          case SDLK_x:
-            bus.controller[0] |= 0x80;
-            break;
-          case SDLK_z:
-            bus.controller[0] |= 0x40;
-            break;
-          case SDLK_a:
-            bus.controller[0] |= 0x20;
-            break;
-          case SDLK_s:
-            bus.controller[0] |= 0x10;
-            break;
-          }
-          break;
-
-        case SDL_KEYUP:
-          switch (event.key.keysym.sym)
-          {
-          case SDLK_DOWN:
-            bus.controller[0] &= ~(0x04);
-            break;
-          case SDLK_UP:
-            bus.controller[0] &= ~(0x08);
-            break;
-          case SDLK_LEFT:
-            bus.controller[0] &= ~(0x02);
-            break;
-          case SDLK_RIGHT:
-            bus.controller[0] &= ~(0x01);
-            break;
-          case SDLK_x:
-            bus.controller[0] &= ~(0x80);
-            break;
-          case SDLK_z:
-            bus.controller[0] &= ~(0x40);
-            break;
-          case SDLK_a:
-            bus.controller[0] &= ~(0x20);
-            break;
-          case SDLK_s:
-            bus.controller[0] &= ~(0x10);
-            break;
-          }
-          break;
-
-        default:
-          break;
-        }
-      }
-
-      cycle = 0;
-      SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));
-
-      SDL_RenderClear(renderer);
-      SDL_RenderCopy(renderer, texture, NULL, NULL);
-      SDL_RenderPresent(renderer);
-    }
-
-    // const uint32_t first_tick = SDL_GetTicks();
-    bus.clock();
-    // const uint32_t second_tick = SDL_GetTicks();
-    cycle++;
-    // SDL_Delay(5);
-  }
-
+  deque<snapshot_s> snapshots;
 
   while (true)
   {
@@ -203,6 +143,14 @@ int main()
     {
     
     }
+    else if(command_split[0] == "setbackupinterval")
+    {
+      backup_interval = stoi(command_split[1]);
+    }
+    else if (command_split[0] == "setcycle")
+    {
+      cycle_threshold = stoi(command_split[1]);
+    }
     else if (command_split[0] == "load")
     {
       cartridge.load(command_split[1]);
@@ -234,13 +182,128 @@ int main()
       if (command_split[1] == "true") verbose = true;
       else verbose = false;
     }
+    else if (command_split[0] == "disablesnapshot")
+    {
+      backup_interval = 0;
+      snapshots.clear();
+    }
     else if (command_split[0] == "run")
     {
+      pause = false;
+
       while (true)
       {
-        if (cycle >= 500)
+        if (backup_interval != 0 && !(cycle % backup_interval))
         {
-          cycle = 0;
+          if (snapshots.size() == backup_threshold)
+            snapshots.pop_front();
+          snapshots.emplace_back(vidmem, ppu, bus, processor);
+        }
+        if (!(cycle % cycle_threshold))
+        {
+          while (SDL_PollEvent(&event))
+          {
+            switch (event.type)
+            {
+            case SDL_KEYDOWN:
+              switch (event.key.keysym.sym)
+              {
+              case SDLK_DOWN:
+                bus.controller[0] |= 0x04;
+                break;
+              case SDLK_UP:
+                bus.controller[0] |= 0x08;
+                break;
+              case SDLK_LEFT:
+                bus.controller[0] |= 0x02;
+                break;
+              case SDLK_RIGHT:
+                bus.controller[0] |= 0x01;
+                break;
+              case SDLK_x:
+                bus.controller[0] |= 0x80;
+                break;
+              case SDLK_z:
+                bus.controller[0] |= 0x40;
+                break;
+              case SDLK_a:
+                bus.controller[0] |= 0x20;
+                break;
+              case SDLK_s:
+                bus.controller[0] |= 0x10;
+                break;
+              case SDLK_ESCAPE:
+                pause = true;
+                break;
+              case SDLK_BACKSLASH:
+                while (SDL_PollEvent(&event))
+                {
+                  if (snapshots.empty()) break;
+                  if (event.type == SDL_KEYUP)
+                  {
+                    if (event.key.keysym.sym == SDLK_BACKSLASH)
+                    {
+                      bus.controller[0] = 0;
+                      break;
+                    }
+                  }
+                  const auto& snapshot = snapshots.back();
+                  vidmem = snapshot.vidmem;
+                  SDL_Delay(20);
+                  memcpy(&ppu, snapshot.ppu_ptr, sizeof(*snapshot.ppu_ptr));
+                  memcpy(&bus, snapshot.bus_ptr, sizeof(*snapshot.bus_ptr));
+                  memcpy(&processor, snapshot.processor_ptr,
+                         sizeof(*snapshot.processor_ptr));
+                  snapshots.pop_back();
+
+                SDL_UpdateTexture(texture, NULL, vidmem.data(),
+                        256 * sizeof(Uint32));
+
+                  SDL_RenderClear(renderer);
+                  SDL_RenderCopy(renderer, texture, NULL, NULL);
+                  SDL_RenderPresent(renderer);
+                }
+                break;
+              }
+              break;
+
+            case SDL_KEYUP:
+              switch (event.key.keysym.sym)
+              {
+              case SDLK_DOWN:
+                bus.controller[0] &= ~(0x04);
+                break;
+              case SDLK_UP:
+                bus.controller[0] &= ~(0x08);
+                break;
+              case SDLK_LEFT:
+                bus.controller[0] &= ~(0x02);
+                break;
+              case SDLK_RIGHT:
+                bus.controller[0] &= ~(0x01);
+                break;
+              case SDLK_x:
+                bus.controller[0] &= ~(0x80);
+                break;
+              case SDLK_z:
+                bus.controller[0] &= ~(0x40);
+                break;
+              case SDLK_a:
+                bus.controller[0] &= ~(0x20);
+                break;
+              case SDLK_s:
+                bus.controller[0] &= ~(0x10);
+                break;
+              }
+              break;
+
+            default:
+              break;
+            }
+          }
+          if (pause)
+            break;
+
           SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));
 
           SDL_RenderClear(renderer);
@@ -248,11 +311,11 @@ int main()
           SDL_RenderPresent(renderer);
         }
 
-        const uint32_t first_tick = SDL_GetTicks();
+        // const uint32_t first_tick = SDL_GetTicks();
         bus.clock();
-        const uint32_t second_tick = SDL_GetTicks();
+        // const uint32_t second_tick = SDL_GetTicks();
         cycle++;
-        //SDL_Delay(5);
+        // SDL_Delay(5);
       }
     }
   }

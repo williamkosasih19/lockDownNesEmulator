@@ -236,24 +236,26 @@ int main()
                 pause = true;
                 break;
               case SDLK_BACKSLASH:
-                while (SDL_PollEvent(&event))
+                while (true)
                 {
+                  SDL_PollEvent(&event);
                   if (snapshots.empty()) break;
                   if (event.type == SDL_KEYUP)
                   {
                     if (event.key.keysym.sym == SDLK_BACKSLASH)
                     {
+                      const auto& snapshot = snapshots.back();
+                      memcpy(&ppu, snapshot.ppu_ptr, sizeof(*snapshot.ppu_ptr));
+                      memcpy(&bus, snapshot.bus_ptr, sizeof(*snapshot.bus_ptr));
+                      memcpy(&processor, snapshot.processor_ptr,
+                             sizeof(*snapshot.processor_ptr));
                       bus.controller[0] = 0;
+                      snapshots.pop_back();
                       break;
                     }
                   }
-                  const auto& snapshot = snapshots.back();
-                  vidmem = snapshot.vidmem;
+                  vidmem = snapshots.back().vidmem;
                   SDL_Delay(20);
-                  memcpy(&ppu, snapshot.ppu_ptr, sizeof(*snapshot.ppu_ptr));
-                  memcpy(&bus, snapshot.bus_ptr, sizeof(*snapshot.bus_ptr));
-                  memcpy(&processor, snapshot.processor_ptr,
-                         sizeof(*snapshot.processor_ptr));
                   snapshots.pop_back();
 
                 SDL_UpdateTexture(texture, NULL, vidmem.data(),

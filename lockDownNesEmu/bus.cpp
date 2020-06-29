@@ -83,6 +83,7 @@ void bus_c::clock()
     auto ram_iterator = ram.begin() + ((uint64_t(dma_page) << 8) & 0x07ff);
     std::copy(ram_iterator, ram_iterator + 256, oam_address);
     dma_transfer = false;
+    cycle += 512;
   }
   else
   {

@@ -440,10 +440,6 @@ void ppu_c::clock()
           const uint16_t diff = scanline - oam_memory[i].y;
           if (diff < (control.sprite_size ? 16 : 8))
           {
-            // A quick hack to make sprite drawn later relative to the background.
-            // Without this, the sprite is drawn earlier than it should be.
-            // Temporary hack until I can figure out why.
-
             scanline_sprites.push_back(sprite_index_pair(oam_memory[i], i));
           }
           if (scanline_sprites.size() == 8)

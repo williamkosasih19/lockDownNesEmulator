@@ -317,6 +317,9 @@ void ppu_c::clock()
       status.vblank = 0;
       status.sprite_overflow = 0;
       status.sprite_zero_hit = 0;
+      
+      sprite_shifter_lsb.fill(0x00);
+      sprite_shifter_msb.fill(0x00);
     }
       
     if (scanline == 0 && cycle == 0)
@@ -331,17 +334,20 @@ void ppu_c::clock()
         if (cycle % 2 == 0)
           bg_attribute <<= 2;
       }
-      for (uint8_t i = 0; i < scanline_sprites.size(); i++)
+      if (mask.render_sprites && cycle > 0 && cycle <= 257)
       {
-        // If a sprite has "collided" with the x scan then update
-        // the shifters.
-        if (scanline_sprites[i].first.x == 0)
+        for (uint8_t i = 0; i < scanline_sprites.size(); i++)
         {
-          sprite_shifter_lsb[i] <<= 1;
-          sprite_shifter_msb[i] <<= 1;
+          // If a sprite has "collided" with the x scan then update
+          // the shifters.
+          if (scanline_sprites[i].first.x == 0)
+          {
+            sprite_shifter_lsb[i] <<= 1;
+            sprite_shifter_msb[i] <<= 1;
+          }
+          else
+            scanline_sprites[i].first.x--;
         }
-        else
-          scanline_sprites[i].first.x--;
       }
 
       switch ((cycle - 1) % 8)
@@ -431,16 +437,14 @@ void ppu_c::clock()
           // If the vertical difference between the scanline and the
           // sprite at a certain index is less than 16 or 78, then it 
           // should be rendered in this scanline.
-          const uint16_t diff = uint16_t(scanline) - oam_memory[i].y;
+          const uint16_t diff = scanline - oam_memory[i].y;
           if (diff < (control.sprite_size ? 16 : 8))
           {
             // A quick hack to make sprite drawn later relative to the background.
             // Without this, the sprite is drawn earlier than it should be.
             // Temporary hack until I can figure out why.
-            auto temporary_sprite = oam_memory[i];
-            temporary_sprite.x += 18;
 
-            scanline_sprites.push_back(sprite_index_pair(temporary_sprite, i));
+            scanline_sprites.push_back(sprite_index_pair(oam_memory[i], i));
           }
           if (scanline_sprites.size() == 8)
           {
@@ -459,7 +463,6 @@ void ppu_c::clock()
     // Prepare the sprites or the next scanline
     if (cycle == 340)
     {
-     
       for (uint8_t i = 0; i < scanline_sprites.size(); i++)
       {
         const sprite_s& sprite = scanline_sprites[i].first;
@@ -471,30 +474,30 @@ void ppu_c::clock()
         if (!control.sprite_size)
         {
           sprite_addr_lsb =
-              ((control.sprite_pattern_table << 12) | (sprite.tile_id << 4)) |
+              (control.sprite_pattern_table << 12) | (sprite.tile_id << 4) |
               (((sprite.attribute & 0x80) ? (7 - scanline + sprite.y) : (scanline - sprite.y)));
           // If sprite.attribute is high then the sprite is flipped vertically.
         }
-        else
-        {
-          if (!(sprite.attribute & 0x80))
-          {
-            sprite_addr_lsb =
-                ((sprite.tile_id & 0x01) << 12) |
-                ((((scanline - sprite.y < 8) ? sprite.tile_id & 0xFE
-                                           : (sprite.tile_id & 0xFE) + 1))
-                 << 4) |
-                ((scanline - sprite.y) & 0x07);
-          }
-          else
-          {
-            sprite_addr_lsb =
-                ((sprite.tile_id & 0x01) << 12) |
-                ((((scanline - sprite.y < 8) ? ((sprite.tile_id & 0xFE) + 1) : sprite.tile_id & 0xFE))
-                 << 4) |
-                ((7 - scanline + sprite.y) & 0x07);
-          }
-        }
+        //else
+        //{
+        //  if (sprite.attribute & 0x80)
+        //  {
+        //    sprite_addr_lsb =
+        //        ((sprite.tile_id & 0x01) << 12) |
+        //        ((((scanline - sprite.y < 8) ? sprite.tile_id & 0xFE
+        //                                   : (sprite.tile_id & 0xFE) + 1))
+        //         << 4) |
+        //        ((scanline - sprite.y) & 0x07);
+        //  }
+        //  else
+        //  {
+        //    sprite_addr_lsb =
+        //        ((sprite.tile_id & 0x01) << 12) |
+        //        ((((scanline - sprite.y < 8) ? ((sprite.tile_id & 0xFE) + 1) : sprite.tile_id & 0xFE))
+        //         << 4) |
+        //        ((7 - scanline + sprite.y) & 0x07);
+        //  }
+        //}
         sprite_addr_msb = sprite_addr_lsb + 8;
 
         sprite_data_lsb = ppu_read(sprite_addr_lsb);
@@ -581,10 +584,11 @@ void ppu_c::clock()
           fg_palette = (scanline_sprites[i].first.attribute & 0x03) + 4;
           fg_priority = !(scanline_sprites[i].first.attribute & 0x20);
 
-          if (scanline_sprites[i].second == 0)
+          if (fg_pixel && scanline_sprites[i].second == 0)
           {
             sprite_zero_rendered = true;
           }
+          break;
         }
       }
     }
@@ -625,7 +629,7 @@ void ppu_c::clock()
     {
       if (mask.render_background && mask.render_sprites)
       {
-        if (!(mask.render_background_left | mask.render_sprites_left))
+        if (~(mask.render_background_left | mask.render_sprites_left))
         {
           if (cycle >= 9 && cycle < 258)
           {

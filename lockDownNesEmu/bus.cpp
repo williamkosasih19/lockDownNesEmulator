@@ -80,22 +80,21 @@ void bus_c::clock()
   {
     byte_t* const oam_address =
         reinterpret_cast<byte_t*>(ppu.oam_memory.data());
-    auto ram_iterator = ram.begin() + (uint64_t(dma_page) << 8);
+    auto ram_iterator = ram.begin() + ((uint64_t(dma_page) << 8) & 0x07ff);
     std::copy(ram_iterator, ram_iterator + 256, oam_address);
     dma_transfer = false;
-    return;
   }
   else
   {
     if (cycle % 3 == 0)
     {
       processor_ptr->execute();
-      if (ppu.nmi)
-      {
-        processor_ptr->nmi();
-        ppu.nmi = false;
-      }
     }
+  }
+  if (ppu.nmi)
+  {
+    processor_ptr->nmi();
+    ppu.nmi = false;
   }
   cycle++;
 }

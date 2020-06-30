@@ -58,6 +58,8 @@ public:
   std::array<uint8_t, 8> sprite_shifter_lsb;
   std::array<uint8_t, 8> sprite_shifter_msb;
 
+  int16_t cycle, scanline;
+
 private:
   std::array<std::array<uint8_t, 1024>, 2> name_table;
   std::array<std::array<uint8_t, 4096>, 2> pattern_table;
@@ -67,9 +69,6 @@ private:
 
   std::array<uint32_t, 256 * 240>& vidmem;
   cartridge_c& cartridge;
-
-  int16_t cycle, scanline;
-
   union
   {
     struct
@@ -150,5 +149,7 @@ private:
   uint16_t bg_attribute = 0x00;
 
   bool_t sprite_zero_rendered = false;
+
+
 
 };

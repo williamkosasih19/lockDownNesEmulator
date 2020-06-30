@@ -431,8 +431,7 @@ void ppu_c::clock()
         sprite_shifter_lsb.fill(0x00);
         sprite_shifter_msb.fill(0x00);
 
-        for (uint8_t i = 0;
-             i < oam_memory.size() && scanline_sprites.size() < 9; i++)
+        for (uint8_t i = 0; i < oam_memory.size(); i++)
         {
           // If the vertical difference between the scanline and the
           // sprite at a certain index is less than 16 or 78, then it 

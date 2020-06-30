@@ -10,6 +10,8 @@
 #include <memory>
 #include <array>
 #include <deque>
+#include <chrono>
+#include <thread>
 
 #include <windows.h>
 
@@ -55,8 +57,8 @@ struct snapshot_s
 
 int main()
 {
-  cout << "Lockdown Nes Emulator v0.02" << endl;
-  cout << "    21 April 2020" << endl;
+  cout << "Lockdown Nes Emulator v0.11" << endl;
+  cout << "    30 June 2020" << endl;
   cout << endl;
   cout << "Type help for help" << endl;
   cout << "> ready!" << endl;
@@ -96,9 +98,12 @@ int main()
   bool_t quit = false;
   bool_t static_noise = false;
   bool_t pause = false;
-  uint16_t cycle_threshold = 8000;
-  uint32_t backup_interval = 175000;
-  uint8_t backup_threshold = 500;
+  uint16_t cycle_threshold = 61440;
+  uint32_t backup_interval = 200000;
+  uint8_t backup_threshold = 200;
+
+  const chrono::milliseconds target_frame_time(15);
+  chrono::steady_clock::time_point frame_start_tick;
 
   deque<snapshot_s> snapshots;
 
@@ -187,12 +192,24 @@ int main()
       backup_interval = 0;
       snapshots.clear();
     }
+    else if (command_split[0] == "launchgame")
+    {
+      cartridge.load(command_split[1]);
+      processor.reset();
+      goto run;
+    }
     else if (command_split[0] == "run")
     {
+      run:
       pause = false;
 
       while (true)
       {
+        if (ppu.cycle == 0 && ppu.scanline == 0)
+        {
+          frame_start_tick = chrono::steady_clock::now();
+        }
+
         if (backup_interval != 0 && !(cycle % backup_interval))
         {
           if (snapshots.size() == backup_threshold)
@@ -240,19 +257,17 @@ int main()
                 {
                   SDL_PollEvent(&event);
                   if (snapshots.empty()) break;
-                  if (event.type == SDL_KEYUP)
+                  if ((event.type == SDL_KEYUP && event.key.keysym.sym ==
+                      SDLK_BACKSLASH) || snapshots.size() == 1)
                   {
-                    if (event.key.keysym.sym == SDLK_BACKSLASH)
-                    {
-                      const auto& snapshot = snapshots.back();
-                      memcpy(&ppu, snapshot.ppu_ptr, sizeof(*snapshot.ppu_ptr));
-                      memcpy(&bus, snapshot.bus_ptr, sizeof(*snapshot.bus_ptr));
-                      memcpy(&processor, snapshot.processor_ptr,
-                             sizeof(*snapshot.processor_ptr));
-                      bus.controller[0] = 0;
-                      snapshots.pop_back();
-                      break;
-                    }
+                    const auto& snapshot = snapshots.back();
+                    memcpy(&ppu, snapshot.ppu_ptr, sizeof(*snapshot.ppu_ptr));
+                    memcpy(&bus, snapshot.bus_ptr, sizeof(*snapshot.bus_ptr));
+                    memcpy(&processor, snapshot.processor_ptr,
+                            sizeof(*snapshot.processor_ptr));
+                    bus.controller[0] = 0;
+                    snapshots.pop_back();
+                    break;
                   }
                   vidmem = snapshots.back().vidmem;
                   SDL_Delay(20);
@@ -305,6 +320,22 @@ int main()
           }
           if (pause)
             break;
+        }
+
+        // const uint32_t first_tick = SDL_GetTicks();
+        bus.clock();
+        // const uint32_t second_tick = SDL_GetTicks();
+        cycle++;
+
+        if (ppu.cycle == 256 && ppu.scanline == 240)
+        {
+          const auto frame_end_tick = chrono::steady_clock::now();
+
+          const auto frame_duration =
+              chrono::duration_cast<chrono::milliseconds>(frame_end_tick -
+                                                          frame_start_tick);
+          if (frame_duration < target_frame_time)
+            this_thread::sleep_for(target_frame_time - frame_duration);
 
           SDL_UpdateTexture(texture, NULL, vidmem.data(), 256 * sizeof(Uint32));
 
@@ -312,12 +343,6 @@ int main()
           SDL_RenderCopy(renderer, texture, NULL, NULL);
           SDL_RenderPresent(renderer);
         }
-
-        // const uint32_t first_tick = SDL_GetTicks();
-        bus.clock();
-        // const uint32_t second_tick = SDL_GetTicks();
-        cycle++;
-        // SDL_Delay(5);
       }
     }
   }

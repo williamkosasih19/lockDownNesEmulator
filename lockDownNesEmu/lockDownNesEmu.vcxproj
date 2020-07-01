@@ -159,6 +159,7 @@
     <ClCompile Include="ppu.cpp" />
     <ClCompile Include="processor.cpp" />
     <ClCompile Include="processorInit.cpp" />
+    <ClCompile Include="saveEngine.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cartridge.h" />

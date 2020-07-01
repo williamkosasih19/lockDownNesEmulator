@@ -28,8 +28,6 @@ private:
   uint8_t character_banks;
   uint8_t char_banks;
 
-  std::shared_ptr<mapper_c> mapper_ptr;
-
 public:
   void load(const std::string& file_name);
   bool_t image_valid;
@@ -42,4 +40,5 @@ public:
   bool_t ppu_write(const uint16_t address, const uint8_t data);
 
   cartridge_mirror_e mirror;
+  std::shared_ptr<mapper_c> mapper_ptr;
 };

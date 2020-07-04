@@ -40,5 +40,5 @@ public:
   bool_t ppu_write(const uint16_t address, const uint8_t data);
 
   cartridge_mirror_e mirror;
-  std::shared_ptr<mapper_c> mapper_ptr;
+  mapper_c* mapper_ptr;
 };

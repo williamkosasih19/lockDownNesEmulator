@@ -9,7 +9,7 @@ uint32_t pixel_s::to_rgba()
   return (uint32_t(128) << 24 | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b));
 }
 
-ppu_c::ppu_c(std::array<uint32_t, 256 * 240>& vid, cartridge_c& cart)
+ppu_c::ppu_c(std::array<uint32_t, 256 * 240>& vid, cartridge_c* cart)
     : vidmem(vid), cartridge(cart)
 {
   palette_table[0x00] = pixel_s(84, 84, 84);
@@ -187,7 +187,7 @@ uint8_t ppu_c::ppu_read(uint16_t address)
 {
   uint8_t data = 0x00;
   address &= 0x3fff;
-  if (cartridge.ppu_read(address, data))
+  if (cartridge->ppu_read(address, data))
   {
 
   }
@@ -198,7 +198,7 @@ uint8_t ppu_c::ppu_read(uint16_t address)
   else if (address >= 0x2000 && address <= 0x3eff)
   {
     const uint16_t remm = (address &= 0xfff) & 0x3ff;
-    if (cartridge.mirror == vertical_cartridge_mirror)
+    if (cartridge->mirror == vertical_cartridge_mirror)
     {
       switch (address / 0x400)
       {
@@ -211,7 +211,7 @@ uint8_t ppu_c::ppu_read(uint16_t address)
         break;
       }
     }
-    else if (cartridge.mirror == horizontal_cartridge_mirror)
+    else if (cartridge->mirror == horizontal_cartridge_mirror)
     {
       switch (address / 0x400)
       {
@@ -244,7 +244,7 @@ uint8_t ppu_c::ppu_read(uint16_t address)
 void ppu_c::ppu_write(uint16_t address, const uint8_t data)
 {
   address &= 0x3fff;
-  if (cartridge.ppu_write(address, data))
+  if (cartridge->ppu_write(address, data))
   {
   }
   else if (address >= 0x00 && address <= 0x1fff)
@@ -254,7 +254,7 @@ void ppu_c::ppu_write(uint16_t address, const uint8_t data)
   else if (address >= 0x2000 && address <= 0x3eff)
   {
     const uint16_t remm = (address &= 0xfff) & 0x3ff;
-    if (cartridge.mirror == vertical_cartridge_mirror)
+    if (cartridge->mirror == vertical_cartridge_mirror)
     {
       switch (address / 0x400)
       {
@@ -267,7 +267,7 @@ void ppu_c::ppu_write(uint16_t address, const uint8_t data)
         break;
       }
     }
-    else if (cartridge.mirror == horizontal_cartridge_mirror)
+    else if (cartridge->mirror == horizontal_cartridge_mirror)
     {
       switch (address / 0x400)
       {

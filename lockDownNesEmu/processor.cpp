@@ -11,7 +11,7 @@
 
 using namespace std;
 
-processor_c::processor_c(bus_c& mem_ref) : bus(mem_ref)
+processor_c::processor_c(bus_c* mem_ref) : bus(mem_ref)
 {
   // logOut.open("C:\\Users\\willi\\Documents\\lockDownCpu.log");
 }
@@ -26,8 +26,8 @@ void processor_c::reset()
   status = 0 | cpu_flags_e::unused_cpu_fl;
 
   // Set pc to entry address at (*(0xfffc + 1) << 8) | *(0xfffc)
-  const uint16_t fetched_low = bus.cpu_read(0xfffc);
-  const uint16_t fetched_high = bus.cpu_read(0xfffd);
+  const uint16_t fetched_low = bus->cpu_read(0xfffc);
+  const uint16_t fetched_high = bus->cpu_read(0xfffd);
   pc = (fetched_high << 8 | fetched_low);
 
   bank_relative_addr = pc;
@@ -55,20 +55,20 @@ void processor_c::irq()
   if (get_flag(disable_interrupt_cpu_fl))
     return;
   // Push the upper half of the pc to stack.
-  bus.cpu_write(0x100 + sp - 1, pc >> 8);
-  bus.cpu_write(0x100 + sp - 2, pc & 0xff);
+  bus->cpu_write(0x100 + sp - 1, pc >> 8);
+  bus->cpu_write(0x100 + sp - 2, pc & 0xff);
 
   set_flag(break_cpu_fl, false);
   set_flag(unused_cpu_fl, true);
   set_flag(disable_interrupt_cpu_fl, true);
 
-  bus.cpu_write(0x100 + sp - 3, status);
+  bus->cpu_write(0x100 + sp - 3, status);
   sp -= 3;
 
   addr = 0xfffe;
   // Fetch handler location.
-  const uint16_t low = bus.cpu_read(addr);
-  const uint16_t high = bus.cpu_read(addr + 1);
+  const uint16_t low = bus->cpu_read(addr);
+  const uint16_t high = bus->cpu_read(addr + 1);
 
   pc = (high << 8) | low;
   cycles = 7;
@@ -77,20 +77,20 @@ void processor_c::irq()
 void processor_c::nmi()
 {
   // Push the upper half of the pc to stack.
-  bus.cpu_write(0x100 + sp, pc >> 8);
-  bus.cpu_write(0x100 + sp - 1, pc & 0xff);
+  bus->cpu_write(0x100 + sp, pc >> 8);
+  bus->cpu_write(0x100 + sp - 1, pc & 0xff);
 
   set_flag(break_cpu_fl, false);
   set_flag(unused_cpu_fl, true);
   set_flag(disable_interrupt_cpu_fl, true);
 
-  bus.cpu_write(0x100 + sp - 2, status);
+  bus->cpu_write(0x100 + sp - 2, status);
   sp -= 3;
 
   addr = 0xfffa;
   // Fetch handler location.
-  const uint16_t low = bus.cpu_read(addr);
-  const uint16_t high = bus.cpu_read(addr + 1);
+  const uint16_t low = bus->cpu_read(addr);
+  const uint16_t high = bus->cpu_read(addr + 1);
 
   pc = (high << 8) | low;
   cycles = 7;
@@ -101,7 +101,7 @@ void processor_c::execute()
   // fetch_opcode from bus(cartridge)
   if (cycles == 0)
   {
-    instruction = bus.cpu_read(pc);
+    instruction = bus->cpu_read(pc);
     pc++;
 
     set_flag(unused_cpu_fl, true);
@@ -128,32 +128,32 @@ void processor_c::execute()
       pc++;
       break;
     case zp_addr:
-      addr = bus.cpu_read(pc) & 0xff;
+      addr = bus->cpu_read(pc) & 0xff;
       pc++;
       break;
     case zpx_addr:
-      addr = bus.cpu_read(pc) + x;
+      addr = bus->cpu_read(pc) + x;
       addr &= 0xff;
       pc++;
       break;
     case zpy_addr:
-      addr = bus.cpu_read(pc++) + y;
+      addr = bus->cpu_read(pc++) + y;
       addr &= 0xff;
       break;
     case rel_addr:
-      addr_relative = bus.cpu_read(pc);
+      addr_relative = bus->cpu_read(pc);
       // Sign extend to 16 bits if the 8-bit offset is negative.
       if (addr_relative & 0x80)
         addr_relative |= 0xFF00;
       pc++;
       break;
     case abs_addr:
-      addr = (bus.cpu_read(pc + 1) << 8) | bus.cpu_read(pc);
+      addr = (bus->cpu_read(pc + 1) << 8) | bus->cpu_read(pc);
       pc += 2;
       break;
     case abx_addr: {
-      const uint16_t lower_half = bus.cpu_read(pc);
-      const uint16_t upper_half = bus.cpu_read(pc + 1);
+      const uint16_t lower_half = bus->cpu_read(pc);
+      const uint16_t upper_half = bus->cpu_read(pc + 1);
       addr = ((upper_half << 8) | lower_half) + x;
       // If the addition with x results in the page  incremented,
       // then add an additional cycle.
@@ -163,8 +163,8 @@ void processor_c::execute()
       break;
     }
     case aby_addr: {
-      const uint16_t lower_half = bus.cpu_read(pc);
-      const uint16_t upper_half = bus.cpu_read(pc + 1);
+      const uint16_t lower_half = bus->cpu_read(pc);
+      const uint16_t upper_half = bus->cpu_read(pc + 1);
 
       addr = ((upper_half << 8) | lower_half) + y;
       // If the addition with y results in the page  incremented,
@@ -175,34 +175,34 @@ void processor_c::execute()
       break;
     }
     case ind_addr: {
-      const uint16_t lower_half = bus.cpu_read(pc);
-      const uint16_t upper_half = bus.cpu_read(pc + 1);
+      const uint16_t lower_half = bus->cpu_read(pc);
+      const uint16_t upper_half = bus->cpu_read(pc + 1);
       const uint16_t ptr = (upper_half << 8) | lower_half;
       if (lower_half == 0xff)
       {
         // Simulate the bug where the lower 8 bit overflow but
         // the upper half doesn't get incremented.
-        addr = ((bus.cpu_read(ptr & 0xff00) << 8) | bus.cpu_read(ptr));
+        addr = ((bus->cpu_read(ptr & 0xff00) << 8) | bus->cpu_read(ptr));
       }
       else
       {
-        addr = ((bus.cpu_read(ptr + 1) << 8) | bus.cpu_read(ptr));
+        addr = ((bus->cpu_read(ptr + 1) << 8) | bus->cpu_read(ptr));
       }
       pc += 2;
       break;
     }
     case izx_addr: {
-      const uint16_t ptr = bus.cpu_read(pc);
-      addr = (bus.cpu_read((ptr + uint16_t(x) + 1) & 0xff) << 8) |
-             bus.cpu_read((ptr + uint16_t(x)) & 0xff);
+      const uint16_t ptr = bus->cpu_read(pc);
+      addr = (bus->cpu_read((ptr + uint16_t(x) + 1) & 0xff) << 8) |
+             bus->cpu_read((ptr + uint16_t(x)) & 0xff);
       pc++;
       break;
     }
 
     case izy_addr: {
-      const uint16_t ptr = bus.cpu_read(pc);
-      uint16_t lower_half = bus.cpu_read(ptr & 0xff);
-      uint16_t upper_half = bus.cpu_read((ptr + 1) & 0xff);
+      const uint16_t ptr = bus->cpu_read(pc);
+      uint16_t lower_half = bus->cpu_read(ptr & 0xff);
+      uint16_t upper_half = bus->cpu_read((ptr + 1) & 0xff);
       addr = ((upper_half << 8) | lower_half) + y;
       if ((addr & 0xff00) != (upper_half << 8))
         additional_cycle += 1;
@@ -213,7 +213,7 @@ void processor_c::execute()
 
     const auto fetch_data = [&]() {
       if (addr_mode != imp_addr)
-        data = bus.cpu_read(addr);
+        data = bus->cpu_read(addr);
     };
 
     switch (opcode_e(op))
@@ -272,7 +272,7 @@ void processor_c::execute()
       if (addr_mode == imp_addr)
         a = temp & 0xff;
       else
-        bus.cpu_write(addr, temp & 0xff);
+        bus->cpu_write(addr, temp & 0xff);
       break;
     }
     case bcc_op: {
@@ -368,7 +368,7 @@ void processor_c::execute()
       if (addr_mode == imp_addr)
         a = data;
       else
-        bus.cpu_write(addr, data);
+        bus->cpu_write(addr, data);
       break;
     }
     case ror_op: {
@@ -381,21 +381,21 @@ void processor_c::execute()
       if (addr_mode == imp_addr)
         a = data;
       else
-        bus.cpu_write(addr, data);
+        bus->cpu_write(addr, data);
       break;
     }
     case rti_op:
-      status = bus.cpu_read(0x100 + sp + 1);
+      status = bus->cpu_read(0x100 + sp + 1);
       set_flag(break_cpu_fl, false);
       set_flag(unused_cpu_fl, false);
 
-      pc = uint16_t(bus.cpu_read(0x100 + 2 + sp)) |
-           (uint16_t(bus.cpu_read(0x100 + 3 + sp)) << 8);
+      pc = uint16_t(bus->cpu_read(0x100 + 2 + sp)) |
+           (uint16_t(bus->cpu_read(0x100 + 3 + sp)) << 8);
       sp += 3;
       break;
     case rts_op:
-      pc = uint16_t(bus.cpu_read(0x100 + sp + 1)) |
-           (uint16_t(bus.cpu_read(0x100 + sp + 2)) << 8);
+      pc = uint16_t(bus->cpu_read(0x100 + sp + 1)) |
+           (uint16_t(bus->cpu_read(0x100 + sp + 2)) << 8);
       pc++;
       sp += 2;
       break;
@@ -470,18 +470,18 @@ void processor_c::execute()
       set_flag(overflow_cpu_fl, false);
       break;
     case sta_op:
-      bus.cpu_write(addr, a);
+      bus->cpu_write(addr, a);
       break;
     case stx_op:
-      bus.cpu_write(addr, x);
+      bus->cpu_write(addr, x);
       break;
     case sty_op:
-      bus.cpu_write(addr, y);
+      bus->cpu_write(addr, y);
       break;
     case dec_op: {
       fetch_data();
       const uint8_t temp = data - 1;
-      bus.cpu_write(addr, temp);
+      bus->cpu_write(addr, temp);
       set_flag(zero_cpu_fl, !temp);
       set_flag(negative_cpu_fl, temp & 0x80);
       break;
@@ -509,14 +509,14 @@ void processor_c::execute()
       }
       else
       {
-        bus.cpu_write(addr, temp & 0xff);
+        bus->cpu_write(addr, temp & 0xff);
       }
       break;
     }
     case jsr_op:
       pc--;
-      bus.cpu_write(0x100 + sp, pc >> 8);
-      bus.cpu_write(0x100 + sp - 1, pc & 0xff);
+      bus->cpu_write(0x100 + sp, pc >> 8);
+      bus->cpu_write(0x100 + sp - 1, pc & 0xff);
 
       sp -= 2;
       pc = addr;
@@ -527,7 +527,7 @@ void processor_c::execute()
     case inc_op: {
       fetch_data();
       const uint8_t temp = data + 1;
-      bus.cpu_write(addr, temp);
+      bus->cpu_write(addr, temp);
       set_flag(zero_cpu_fl, !temp);
       set_flag(negative_cpu_fl, temp & 0x80);
       break;
@@ -568,11 +568,11 @@ void processor_c::execute()
       break;
     }
     case pha_op:
-      bus.cpu_write(0x100 + sp, a);
+      bus->cpu_write(0x100 + sp, a);
       sp--;
       break;
     case php_op:
-      bus.cpu_write(0x100 + sp, status | cpu_flags_e::break_cpu_fl |
+      bus->cpu_write(0x100 + sp, status | cpu_flags_e::break_cpu_fl |
                                     cpu_flags_e::unused_cpu_fl);
       set_flag(break_cpu_fl, false);
       set_flag(unused_cpu_fl, false);
@@ -580,13 +580,13 @@ void processor_c::execute()
       break;
     case pla_op:
       sp++;
-      a = bus.cpu_read(0x100 + sp);
+      a = bus->cpu_read(0x100 + sp);
       set_flag(zero_cpu_fl, !a);
       set_flag(negative_cpu_fl, a & 0x80);
       break;
     case plp_op:
       sp++;
-      status = bus.cpu_read(0x100 + sp);
+      status = bus->cpu_read(0x100 + sp);
       set_flag(unused_cpu_fl, true);
       break;
     case eor_op:
@@ -629,18 +629,18 @@ void processor_c::execute()
       pc++;
 
       set_flag(disable_interrupt_cpu_fl, true);
-      bus.cpu_write(0x0100 + sp, (pc >> 8) & 0x00FF);
+      bus->cpu_write(0x0100 + sp, (pc >> 8) & 0x00FF);
       sp--;
-      bus.cpu_write(0x0100 + sp, pc & 0x00FF);
+      bus->cpu_write(0x0100 + sp, pc & 0x00FF);
       sp--;
 
       set_flag(break_cpu_fl, true);
-      bus.cpu_write(0x0100 + sp, status);
+      bus->cpu_write(0x0100 + sp, status);
       sp--;
       set_flag(break_cpu_fl, false);
 
-      pc = uint16_t(bus.cpu_read(0xFFFE)) |
-           (uint16_t(bus.cpu_read(0xFFFF)) << 8);
+      pc = uint16_t(bus->cpu_read(0xFFFE)) |
+           (uint16_t(bus->cpu_read(0xFFFF)) << 8);
       break;
     case nop_op:
       switch (op)

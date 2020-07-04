@@ -34,7 +34,7 @@ private:
   uint8_t a, x, y, sp, instruction, data, status, cycles;
   uint16_t pc, addr, addr_relative;
   uint64_t clock_count;
-  bus_c& bus;
+  
   op_table_t op_table;
 
   // for debugging purposes.
@@ -43,7 +43,7 @@ private:
   uint8_t op, addr_mode;
 
   public:
-  processor_c(bus_c&);
+  processor_c(bus_c*);
   void init();
   void reset();
   void execute();
@@ -53,4 +53,5 @@ private:
   void nmi();
 
   std::ofstream logOut;
+  bus_c* bus;
 };

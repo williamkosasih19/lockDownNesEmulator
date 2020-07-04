@@ -9,7 +9,7 @@
 
 using namespace std;
 
-bus_c::bus_c(cartridge_c& main_cartridge, ppu_c& ppu)
+bus_c::bus_c(cartridge_c* main_cartridge, ppu_c* ppu)
     : cartridge(main_cartridge), ppu(ppu)
 { 
   ram.fill(0); 
@@ -26,7 +26,7 @@ void bus_c::plug_in_processor(processor_c* const processor_ptr)
 uint8_t bus_c::cpu_read(const uint16_t address)
 {
   uint8_t data;
-  if(cartridge.cpu_read(address, data))
+  if(cartridge->cpu_read(address, data))
   {
   
   }
@@ -36,7 +36,7 @@ uint8_t bus_c::cpu_read(const uint16_t address)
   }
   else if (address >= 0x2000 && address <= 0x3fff)
   {
-    data = ppu.cpu_read(address & 0x7);
+    data = ppu->cpu_read(address & 0x7);
   }
   else if (address >= 0x4016 && address <= 0x4017)
   {
@@ -49,7 +49,7 @@ uint8_t bus_c::cpu_read(const uint16_t address)
 
 void bus_c::cpu_write(const uint16_t address, const uint8_t data)
 {
-  if (cartridge.cpu_write(address, data))
+  if (cartridge->cpu_write(address, data))
   {
   }
   else if (address >= 0x00 && address <= 0x1fff)
@@ -58,7 +58,7 @@ void bus_c::cpu_write(const uint16_t address, const uint8_t data)
   }
   else if (address >= 0x2000 && address <= 0x3fff)
   {
-    ppu.cpu_write(address & 0x7, data);
+    ppu->cpu_write(address & 0x7, data);
   }
   else if (address >= 0x4016 && address <= 0x4017)
   {
@@ -73,13 +73,13 @@ void bus_c::cpu_write(const uint16_t address, const uint8_t data)
 
 void bus_c::clock()
 {
-  ppu.clock();
+  ppu->clock();
   // If the ppu sets the oam flag, and clock is even, then process DMA.
   // Otherwise let cpu run for another cycle
   if (cycle % 2 == 0 && dma_transfer)
   {
     byte_t* const oam_address =
-        reinterpret_cast<byte_t*>(ppu.oam_memory.data());
+        reinterpret_cast<byte_t*>(ppu->oam_memory.data());
     auto ram_iterator = ram.begin() + ((uint64_t(dma_page) << 8) & 0x07ff);
     std::copy(ram_iterator, ram_iterator + 256, oam_address);
     dma_transfer = false;
@@ -92,10 +92,10 @@ void bus_c::clock()
       processor_ptr->execute();
     }
   }
-  if (ppu.nmi)
+  if (ppu->nmi)
   {
     processor_ptr->nmi();
-    ppu.nmi = false;
+    ppu->nmi = false;
   }
   cycle++;
 }

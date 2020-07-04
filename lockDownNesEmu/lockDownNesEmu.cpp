@@ -35,17 +35,17 @@ struct snapshot_s
   ppu_c* ppu_ptr;
   bus_c* bus_ptr;
   processor_c* processor_ptr;
-  snapshot_s(const array<unsigned int, 256 * 240>& vmem, const ppu_c& ppu,
-    const bus_c& bus, const processor_c& processor) { 
+  snapshot_s(const array<unsigned int, 256 * 240>& vmem, const ppu_c* const ppu,
+    const bus_c* const bus, const processor_c* const processor) { 
     vidmem = vmem;
-    ppu_ptr = (ppu_c*)malloc(sizeof(ppu));
-    memcpy(ppu_ptr, &ppu, sizeof(ppu));
+    ppu_ptr = (ppu_c*)malloc(sizeof(*ppu));
+    memcpy(ppu_ptr, ppu, sizeof(*ppu));
 
-    bus_ptr = (bus_c*)malloc(sizeof(bus));
-    memcpy(bus_ptr, &bus, sizeof(bus));
+    bus_ptr = (bus_c*)malloc(sizeof(*bus));
+    memcpy(bus_ptr, bus, sizeof(*bus));
 
-    processor_ptr = (processor_c*)malloc(sizeof(processor));
-    memcpy(processor_ptr, &processor, sizeof(processor));
+    processor_ptr = (processor_c*)malloc(sizeof(*processor));
+    memcpy(processor_ptr, processor, sizeof(*processor));
   }
   ~snapshot_s()
   {
@@ -86,12 +86,12 @@ int main()
   }
 
   // Component initialisation
-  cartridge_c cartridge;
-  ppu_c ppu(vidmem, cartridge);
-  bus_c bus(cartridge, ppu);
-  processor_c processor(bus);
-  processor.init();
-  bus.plug_in_processor(&processor);
+  cartridge_c* cartridge = new cartridge_c;
+  ppu_c* ppu = new ppu_c(vidmem, cartridge);
+  bus_c* bus = new bus_c(cartridge, ppu);
+  processor_c* processor = new processor_c(bus);
+  processor->init();
+  bus->plug_in_processor(processor);
 
   uint64_t cycle = 0;
 
@@ -158,7 +158,7 @@ int main()
     }
     else if (command_split[0] == "load")
     {
-      cartridge.load(command_split[1]);
+      cartridge->load(command_split[1]);
     }
     else if (command_split[0] == "noizze")
     {
@@ -172,15 +172,15 @@ int main()
     {
       number32_t cycles = stoi(command_split[1]);
       for (index32_t i = 0; i < cycles; i++)
-        processor.execute();
+        processor->execute();
     }
     else if (command_split[0] == "querycpu")
     {
-      processor.query();
+      processor->query();
     }
     else if (command_split[0] == "reset")
     {
-      processor.reset();
+      processor->reset();
     }
     else if (command_split[0] == "verbose")
     {
@@ -194,8 +194,8 @@ int main()
     }
     else if (command_split[0] == "launchgame")
     {
-      cartridge.load(command_split[1]);
-      processor.reset();
+      cartridge->load(command_split[1]);
+      processor->reset();
       goto run;
     }
     else if (command_split[0] == "run")
@@ -205,7 +205,7 @@ int main()
 
       while (true)
       {
-        if (ppu.cycle == 0 && ppu.scanline == 0)
+        if (ppu->cycle == 0 && ppu->scanline == 0)
         {
           frame_start_tick = chrono::steady_clock::now();
         }
@@ -226,28 +226,28 @@ int main()
               switch (event.key.keysym.sym)
               {
               case SDLK_DOWN:
-                bus.controller[0] |= 0x04;
+                bus->controller[0] |= 0x04;
                 break;
               case SDLK_UP:
-                bus.controller[0] |= 0x08;
+                bus->controller[0] |= 0x08;
                 break;
               case SDLK_LEFT:
-                bus.controller[0] |= 0x02;
+                bus->controller[0] |= 0x02;
                 break;
               case SDLK_RIGHT:
-                bus.controller[0] |= 0x01;
+                bus->controller[0] |= 0x01;
                 break;
               case SDLK_x:
-                bus.controller[0] |= 0x80;
+                bus->controller[0] |= 0x80;
                 break;
               case SDLK_z:
-                bus.controller[0] |= 0x40;
+                bus->controller[0] |= 0x40;
                 break;
               case SDLK_a:
-                bus.controller[0] |= 0x20;
+                bus->controller[0] |= 0x20;
                 break;
               case SDLK_s:
-                bus.controller[0] |= 0x10;
+                bus->controller[0] |= 0x10;
                 break;
               case SDLK_ESCAPE:
                 pause = true;
@@ -261,11 +261,11 @@ int main()
                       SDLK_BACKSLASH) || snapshots.size() == 1)
                   {
                     const auto& snapshot = snapshots.back();
-                    memcpy(&ppu, snapshot.ppu_ptr, sizeof(*snapshot.ppu_ptr));
-                    memcpy(&bus, snapshot.bus_ptr, sizeof(*snapshot.bus_ptr));
-                    memcpy(&processor, snapshot.processor_ptr,
+                    memcpy(bus, snapshot.bus_ptr, sizeof(*snapshot.bus_ptr));
+                    memcpy(ppu, snapshot.ppu_ptr, sizeof(*snapshot.ppu_ptr));
+                    memcpy(processor, snapshot.processor_ptr,
                             sizeof(*snapshot.processor_ptr));
-                    bus.controller[0] = 0;
+                    bus->controller[0] = 0;
                     snapshots.pop_back();
                     break;
                   }
@@ -288,28 +288,28 @@ int main()
               switch (event.key.keysym.sym)
               {
               case SDLK_DOWN:
-                bus.controller[0] &= ~(0x04);
+                bus->controller[0] &= ~(0x04);
                 break;
               case SDLK_UP:
-                bus.controller[0] &= ~(0x08);
+                bus->controller[0] &= ~(0x08);
                 break;
               case SDLK_LEFT:
-                bus.controller[0] &= ~(0x02);
+                bus->controller[0] &= ~(0x02);
                 break;
               case SDLK_RIGHT:
-                bus.controller[0] &= ~(0x01);
+                bus->controller[0] &= ~(0x01);
                 break;
               case SDLK_x:
-                bus.controller[0] &= ~(0x80);
+                bus->controller[0] &= ~(0x80);
                 break;
               case SDLK_z:
-                bus.controller[0] &= ~(0x40);
+                bus->controller[0] &= ~(0x40);
                 break;
               case SDLK_a:
-                bus.controller[0] &= ~(0x20);
+                bus->controller[0] &= ~(0x20);
                 break;
               case SDLK_s:
-                bus.controller[0] &= ~(0x10);
+                bus->controller[0] &= ~(0x10);
                 break;
               }
               break;
@@ -323,11 +323,11 @@ int main()
         }
 
         // const uint32_t first_tick = SDL_GetTicks();
-        bus.clock();
+        bus->clock();
         // const uint32_t second_tick = SDL_GetTicks();
         cycle++;
 
-        if (ppu.cycle == 256 && ppu.scanline == 240)
+        if (ppu->cycle == 256 && ppu->scanline == 240)
         {
           const auto frame_end_tick = chrono::steady_clock::now();
 

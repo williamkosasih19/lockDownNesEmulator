@@ -21,21 +21,16 @@ class bus_c
 {
 private:
   std::array<uint8_t, 65536> ram;
-  cartridge_c& cartridge;
-  ppu_c& ppu;
-
   uint8_t cycle;
 
   std::array<uint8_t, 2> controller_state;
-
-  processor_c* processor_ptr;
 
   uint16_t dma_page = 0x0;
   uint16_t dma_address = 0x0;
   bool_t dma_transfer = false;
 
 public:
-  bus_c(cartridge_c&, ppu_c&);
+  bus_c(cartridge_c*, ppu_c*);
   uint8_t cpu_read(const uint16_t address);
   void cpu_write(const uint16_t address, uint8_t data);
 
@@ -44,4 +39,8 @@ public:
   std::array<uint8_t, 2> controller;
 
   void clock();
+
+  cartridge_c* cartridge;
+  ppu_c* ppu;
+  processor_c* processor_ptr;
 };

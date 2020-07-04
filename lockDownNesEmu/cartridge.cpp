@@ -63,7 +63,7 @@ void cartridge_c::load(const string& file_name)
   switch (mapper_id)
   {
   case 0:
-    mapper_ptr = make_shared<mapper_000_c>(program_banks, character_banks);
+    mapper_ptr = new mapper_000_c(program_banks, character_banks);
     break;
   case 1:
 

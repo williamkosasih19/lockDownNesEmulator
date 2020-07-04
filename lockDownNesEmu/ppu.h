@@ -34,7 +34,7 @@ struct sprite_s
 class ppu_c
 {
 public:
-  ppu_c(std::array<uint32_t, 256 * 240>&, cartridge_c&);
+  ppu_c(std::array<uint32_t, 256 * 240>&, cartridge_c*);
   void clock();
 
   uint8_t& ppu_access(uint16_t address);
@@ -60,6 +60,8 @@ public:
 
   int16_t cycle, scanline;
 
+  cartridge_c* cartridge;
+
 private:
   std::array<std::array<uint8_t, 1024>, 2> name_table;
   std::array<std::array<uint8_t, 4096>, 2> pattern_table;
@@ -68,7 +70,6 @@ private:
   std::array<uint8_t, 32> palette_memory;
 
   std::array<uint32_t, 256 * 240>& vidmem;
-  cartridge_c& cartridge;
   union
   {
     struct
